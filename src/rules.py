@@ -7,6 +7,7 @@ from datetime import date
 from decimal import Decimal
 
 from .loader import Invoice, Receipt, MONEY_QUANTUM
+from .disputes import split_balance
 
 
 @dataclass
@@ -98,13 +99,7 @@ def unapplied_receipts(receipts: list[Receipt], as_of: date) -> list[Receipt]:
 
 
 def _review_and_collectable(invoice: Invoice, balance: Decimal) -> tuple[Decimal, Decimal]:
-    # A starter boolean dispute has no amount/detail; hold the full balance.
-    if invoice.disputed and invoice.dispute_status in {"none", "open"}:
-        review = balance if invoice.disputed_amount is None else min(
-            invoice.disputed_amount, balance
-        )
-        return review, balance - review
-    return Decimal("0.00"), balance
+    return split_balance(invoice, balance)
 
 
 def invoice_state(
