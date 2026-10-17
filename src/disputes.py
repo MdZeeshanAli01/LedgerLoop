@@ -119,4 +119,24 @@ def explain(invoice_eval: InvoiceEval) -> str:
         f"Due {invoice.due_date.isoformat()}, {invoice_eval.days_overdue} days overdue "
         f"({invoice_eval.ageing_bucket}) as of {invoice_eval.as_of_date.isoformat()}."
     )
+    if invoice_eval.promise_status != "none":
+        parts.append(
+            f"Promised {_display(invoice.promise_amount or invoice_eval.collectable_amount)} "
+            f"by {invoice.promise_date.isoformat()}, received "
+            f"{_display(invoice_eval.promised_paid)}."
+        )
+        if invoice_eval.promise_status == "active":
+            parts.append("Promise active, so this invoice is held.")
+        elif invoice_eval.promise_status == "kept":
+            parts.append("Promise kept.")
+        else:
+            parts.append(
+                f"Promise missed, shortfall {_display(invoice_eval.promise_shortfall)}."
+            )
+    if invoice_eval.score is not None:
+        parts.append(
+            f"Score {_display(invoice_eval.score)} = age {_display(invoice_eval.age_points)} "
+            f"+ amount {_display(invoice_eval.amount_points)} + broken promise "
+            f"{_display(invoice_eval.promise_points)}."
+        )
     return " ".join(parts)

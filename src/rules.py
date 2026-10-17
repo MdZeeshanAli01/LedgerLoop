@@ -9,6 +9,11 @@ from decimal import Decimal
 from .loader import Invoice, Receipt, MONEY_QUANTUM
 from .disputes import split_balance
 
+W_AGE = Decimal("0.45")
+W_AMOUNT = Decimal("0.35")
+W_PROMISE = Decimal("0.20")
+AGE_CAP = 90
+
 
 @dataclass
 class InvoiceEval:
@@ -24,6 +29,14 @@ class InvoiceEval:
     collectable_amount: Decimal
     state: str
     is_not_yet_issued: bool = False
+    promise_status: str = "none"
+    promised_paid: Decimal = Decimal("0.00")
+    promise_shortfall: Decimal = Decimal("0.00")
+    broken_promise: bool = False
+    score: Decimal | None = None
+    age_points: Decimal = Decimal("0.00")
+    amount_points: Decimal = Decimal("0.00")
+    promise_points: Decimal = Decimal("0.00")
 
     @property
     def invoice_id(self) -> str:
@@ -102,17 +115,47 @@ def _review_and_collectable(invoice: Invoice, balance: Decimal) -> tuple[Decimal
     return split_balance(invoice, balance)
 
 
+def promise_status(
+    invoice: Invoice, receipts: list[Receipt], as_of: date, collectable: Decimal
+) -> tuple[str, Decimal, Decimal]:
+    """Return status, receipts counted toward the promise, and shortfall."""
+    if invoice.promise_date is None or invoice.promise_made_date is None:
+        return "none", Decimal("0.00"), Decimal("0.00")
+    if collectable <= 0:
+        return "none", Decimal("0.00"), Decimal("0.00")
+    paid = _money(sum(
+        (
+            receipt.amount
+            for receipt in receipts
+            if receipt.invoice_id == invoice.invoice_id
+            and receipt.receipt_date is not None
+            and invoice.promise_made_date <= receipt.receipt_date <= as_of
+        ),
+        Decimal("0.00"),
+    ))
+    promised_amount = invoice.promise_amount or collectable
+    shortfall = max(Decimal("0.00"), _money(promised_amount - paid))
+    if shortfall == 0:
+        return "kept", paid, shortfall
+    if as_of <= invoice.promise_date:
+        return "active", paid, shortfall
+    return "broken", paid, shortfall
+
+
 def invoice_state(
     invoice: Invoice,
     balance: Decimal,
     review_amount: Decimal,
     collectable_amount: Decimal,
     as_of: date,
+    promise: str = "none",
 ) -> str:
     if balance == 0:
         return "Paid"
     if review_amount > 0 and collectable_amount == 0:
         return "Under Review"
+    if promise == "active" and collectable_amount > 0:
+        return "Promised"
     if as_of <= invoice.due_date:
         return "Not due"
     return "Collectable"
@@ -131,6 +174,9 @@ def evaluate_all(
         balance = max(Decimal("0.00"), raw_balance)
         review, collectable = _review_and_collectable(invoice, balance)
         overdue = days_overdue(invoice.due_date, as_of)
+        promise, promised_paid, shortfall = promise_status(
+            invoice, receipts, as_of, collectable
+        )
         evaluations.append(InvoiceEval(
             invoice=invoice,
             as_of_date=as_of,
@@ -142,22 +188,61 @@ def evaluate_all(
             ageing_bucket=bucket(overdue),
             review_amount=_money(review),
             collectable_amount=_money(collectable),
-            state=invoice_state(invoice, balance, review, collectable, as_of),
+            state=invoice_state(invoice, balance, review, collectable, as_of, promise),
             is_not_yet_issued=not_yet_issued,
+            promise_status=promise,
+            promised_paid=promised_paid,
+            promise_shortfall=shortfall,
+            broken_promise=promise == "broken",
         ))
     return evaluations
 
 
+def priority_score(
+    evaluation: InvoiceEval, max_collectable: Decimal
+) -> tuple[Decimal, Decimal, Decimal, Decimal]:
+    """Return total score and its displayed component points."""
+    age_score = min(evaluation.days_overdue, AGE_CAP) / Decimal(AGE_CAP)
+    amount_score = (
+        Decimal("1.00")
+        if max_collectable <= 0
+        else evaluation.collectable_amount / max_collectable
+    )
+    promise_score = (
+        evaluation.promise_shortfall / (evaluation.invoice.promise_amount or evaluation.collectable_amount)
+        if evaluation.broken_promise
+        else Decimal("0.00")
+    )
+    age_points = Decimal("100") * W_AGE * age_score
+    amount_points = Decimal("100") * W_AMOUNT * amount_score
+    promise_points = Decimal("100") * W_PROMISE * promise_score
+    total = age_points + amount_points + promise_points
+    return total, age_points, amount_points, promise_points
+
+
 def ranked_collectable(evaluations: list[InvoiceEval]) -> list[InvoiceEval]:
-    """Return the basic Phase 2 priority view, excluding paid/not-due/review rows."""
-    return sorted(
+    """Score and rank collectible invoices using the C28 priority formula."""
+    ranked = [
+        evaluation for evaluation in evaluations
+        if evaluation.state == "Collectable"
+        and evaluation.collectable_amount > 0
+        and not evaluation.is_not_yet_issued
+    ]
+    max_collectable = max(
+        (evaluation.collectable_amount for evaluation in ranked),
+        default=Decimal("0.00"),
+    )
+    for evaluation in ranked:
         (
-            evaluation for evaluation in evaluations
-            if evaluation.state == "Collectable"
-            and evaluation.collectable_amount > 0
-            and not evaluation.is_not_yet_issued
-        ),
+            evaluation.score,
+            evaluation.age_points,
+            evaluation.amount_points,
+            evaluation.promise_points,
+        ) = priority_score(evaluation, max_collectable)
+    return sorted(
+        ranked,
         key=lambda evaluation: (
+            -evaluation.score,
             -evaluation.days_overdue,
             -evaluation.collectable_amount,
             evaluation.invoice_id,
