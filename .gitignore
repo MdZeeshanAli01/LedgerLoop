@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+venv/
+.venv/
+env/
+
+# Build output
+dist/
+build/
+out/
+.next/
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+
+# Caches and coverage
+.cache/
+.pytest_cache/
+.mypy_cache/
+.coverage
+coverage/
+*.log
+
+# Editors and operating-system files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+.DS_Store
+Thumbs.db
