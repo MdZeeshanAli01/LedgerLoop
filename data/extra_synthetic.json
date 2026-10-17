@@ -1,0 +1,74 @@
+{
+  "case_id": "C28",
+  "synthetic": true,
+  "added_by": "LedgerLoop team",
+  "data_version": "synthetic-edge-cases-v1",
+  "currency": "INR",
+  "records": {
+    "as_of": "2026-10-16",
+    "invoices": [
+      {
+        "id": "SYN-PARTIAL",
+        "customer": "Synthetic A",
+        "amount_inr": 10000,
+        "received_inr": 4000,
+        "due": "2026-10-01",
+        "disputed": false
+      },
+      {
+        "id": "SYN-DISPUTE",
+        "customer": "Synthetic B",
+        "amount_inr": 10000,
+        "received_inr": 0,
+        "due": "2026-10-01",
+        "disputed": true,
+        "dispute_status": "open",
+        "disputed_amount": 2000,
+        "dispute_cause": "damaged_goods",
+        "dispute_resolution": "pending"
+      },
+      {
+        "id": "SYN-PROMISE",
+        "customer": "Synthetic C",
+        "amount_inr": 8000,
+        "received_inr": 0,
+        "due": "2026-09-01",
+        "disputed": false,
+        "promise_made_date": "2026-10-01",
+        "promise_date": "2026-10-10",
+        "promise_amount": 8000
+      },
+      {
+        "id": "SYN-INVALID",
+        "customer": "Synthetic Invalid",
+        "amount_inr": -1,
+        "received_inr": 0,
+        "due": "2026-10-01",
+        "disputed": false
+      }
+    ],
+    "receipts": [
+      {
+        "receipt_id": "SYN-R1",
+        "invoice_id": "SYN-PARTIAL",
+        "customer": "Synthetic A",
+        "amount": 1000,
+        "receipt_date": "2026-10-05"
+      },
+      {
+        "receipt_id": "SYN-UNAPPLIED",
+        "invoice_id": "",
+        "customer": "Synthetic A",
+        "amount": 500,
+        "receipt_date": "2026-10-05"
+      },
+      {
+        "receipt_id": "SYN-FUTURE",
+        "invoice_id": "SYN-PARTIAL",
+        "customer": "Synthetic A",
+        "amount": 1000,
+        "receipt_date": "2026-11-01"
+      }
+    ]
+  }
+}

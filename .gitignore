@@ -23,6 +23,8 @@ __pycache__/
 .coverage
 coverage/
 *.log
+output/*
+!output/.gitkeep
 
 # Editors and operating-system files
 .vscode/*

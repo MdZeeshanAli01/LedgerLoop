@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 from src.drafts import draft_for_customer, drafts_for_customers
-from src.loader import Invoice, Receipt
+from src.loader import Invoice
 from src.rules import evaluate_all
 
 

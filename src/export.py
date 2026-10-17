@@ -5,7 +5,6 @@ from __future__ import annotations
 import csv
 import json
 from collections import Counter
-from dataclasses import asdict
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
