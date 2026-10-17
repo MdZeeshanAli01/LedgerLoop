@@ -16,6 +16,7 @@ out/
 !.env.example
 
 # Caches and coverage
+__pycache__/
 .cache/
 .pytest_cache/
 .mypy_cache/
