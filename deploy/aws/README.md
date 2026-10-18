@@ -51,7 +51,7 @@ Only use `-LiveEmail` after:
 ## Container smoke test
 
 ```powershell
-docker build -t hisaabset:local .
+docker build -f deploy/docker/streamlit.Dockerfile -t hisaabset:local .
 docker run --rm -p 8501:8501 `
   -e AWS_REGION=ap-south-1 `
   -e HISAABSET_EMAIL_SENDER=unnamedinsect424@gmail.com `
