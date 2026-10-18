@@ -676,4 +676,6 @@ Before presenting the project, an MBA team should:
 - `src/disputes.py`: dispute splitting and explanations.
 - `src/drafts.py`: customer draft generation.
 - `src/export.py`: export and evidence generation.
+- `docs/BUSINESS_PRICING_AND_AWS_COST_MODEL.md`: complete AWS cost analysis (dev, deploy, maintain), unit economics, and 3-tier SaaS subscription pricing model.
 - `tests/`: executable examples of the rules.
+
