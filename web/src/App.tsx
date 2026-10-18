@@ -1,112 +1,122 @@
-import { useMemo, useState } from "react";
+import { ChangeEvent, useMemo, useState } from "react";
 import {
-  ArrowUpRight, Bell, Check, ChevronRight, CircleAlert, Clock3, Download,
-  FileText, LayoutDashboard, Mail, Menu, MoreHorizontal, Search, Settings2,
-  ShieldCheck, SlidersHorizontal, WalletCards, X,
+  AlertTriangle, ArrowDownToLine, ArrowUpRight, Bell, Check, ChevronRight,
+  CircleDollarSign, CircleHelp, Clock3, FileText, FolderOpen, LayoutDashboard,
+  Mail, Menu, Plus, Search, Settings2, ShieldCheck, SlidersHorizontal, Upload,
+  Users, WalletCards, X,
 } from "lucide-react";
 import fixture from "../public/fixture.json";
 
-type RawInvoice = {
-  id: string; amount_inr: number; received_inr: number; due: string;
-  disputed: boolean; customer: string;
-};
-type Invoice = RawInvoice & {
-  outstanding: number; collectible: number; review: number; state: State;
-  daysOverdue: number; score: number | null; ageing: string;
-};
-type State = "Paid" | "Under Review" | "Collectable" | "Not due";
-type View = "Overview" | "Priority" | "Customers" | "Drafts";
+type RawInvoice = { id: string; amount_inr: number; received_inr: number; due: string; disputed: boolean; customer: string; };
+type Invoice = RawInvoice & { outstanding: number; collectible: number; review: number; state: State; daysOverdue: number; score: number | null; ageing: string; };
+type State = "Paid" | "Under Review" | "Collectable" | "Not due" | "Promised";
+type Navigation = "add" | "bills" | "customers";
+type Tab = "priority" | "review" | "promised" | "safe" | "unapplied" | "drafts" | "detail";
 
-const currency = (value: number) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value);
+const money = (value: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(value);
+const money0 = (value: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value);
+const today = fixture.records.as_of;
 
-function evaluate(asOf: string): Invoice[] {
-  const today = new Date(`${asOf}T00:00:00`);
-  const raw = fixture.records.invoices as RawInvoice[];
-  const collectables = raw.map((item) => Math.max(0, item.amount_inr - item.received_inr))
-    .filter((value) => value > 0);
-  const maxCollectable = Math.max(...collectables, 0);
+function evaluate(raw: RawInvoice[], asOf: string): Invoice[] {
+  const asOfDate = new Date(`${asOf}T00:00:00`);
+  const max = Math.max(...raw.map((item) => Math.max(0, item.amount_inr - item.received_inr - (item.disputed ? item.amount_inr - item.received_inr : 0))), 0);
   return raw.map((item) => {
     const due = new Date(`${item.due}T00:00:00`);
     const outstanding = Math.max(0, item.amount_inr - item.received_inr);
     const review = item.disputed ? outstanding : 0;
     const collectible = outstanding - review;
-    const daysOverdue = Math.max(0, Math.floor((today.getTime() - due.getTime()) / 86400000));
-    const state: State = outstanding === 0 ? "Paid" : review > 0 && collectible === 0
-      ? "Under Review" : today <= due ? "Not due" : "Collectable";
-    const ranked = state === "Collectable" && collectible > 0;
-    const score = ranked ? 100 * (0.45 * Math.min(daysOverdue, 90) / 90 +
-      0.35 * (collectible / maxCollectable)) : null;
-    return { ...item, outstanding, collectible, review, state, daysOverdue,
-      score, ageing: daysOverdue <= 0 ? "Not due" : daysOverdue <= 30 ? "1-30" :
-        daysOverdue <= 60 ? "31-60" : daysOverdue <= 90 ? "61-90" : "90+" };
+    const daysOverdue = Math.max(0, Math.floor((asOfDate.getTime() - due.getTime()) / 86400000));
+    const state: State = outstanding === 0 ? "Paid" : review > 0 && collectible === 0 ? "Under Review" : asOfDate <= due ? "Not due" : "Collectable";
+    const score = state === "Collectable" && collectible > 0 ? 100 * (0.45 * Math.min(daysOverdue, 90) / 90 + 0.35 * (max ? collectible / max : 1)) : null;
+    return { ...item, outstanding, collectible, review, state, daysOverdue, score, ageing: daysOverdue <= 0 ? "Not due" : daysOverdue <= 30 ? "1-30" : daysOverdue <= 60 ? "31-60" : daysOverdue <= 90 ? "61-90" : "90+" };
   }).sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
 }
 
 function App() {
-  const [view, setView] = useState<View>("Overview");
-  const [asOf, setAsOf] = useState(fixture.records.as_of);
-  const [query, setQuery] = useState("");
+  const [navigation, setNavigation] = useState<Navigation>("add");
+  const [tab, setTab] = useState<Tab>("priority");
+  const [asOf, setAsOf] = useState(today);
+  const [invoices, setInvoices] = useState<RawInvoice[]>(fixture.records.invoices as RawInvoice[]);
+  const [filter, setFilter] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Invoice | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const invoices = useMemo(() => evaluate(asOf), [asOf]);
-  const filtered = invoices.filter((item) => `${item.id} ${item.customer}`.toLowerCase().includes(query.toLowerCase()));
-  const total = (key: "outstanding" | "collectible" | "review") =>
-    invoices.reduce((sum, item) => sum + item[key], 0);
-  const priority = invoices.filter((item) => item.state === "Collectable");
+  const [toast, setToast] = useState("");
+  const evaluations = useMemo(() => evaluate(invoices, asOf).filter((item) => !filter.length || filter.includes(item.customer)).filter((item) => `${item.id} ${item.customer}`.toLowerCase().includes(search.toLowerCase())), [invoices, asOf, filter, search]);
+  const customers = [...new Set(invoices.map((item) => item.customer))].sort();
+  const total = (key: "outstanding" | "collectible" | "review") => evaluations.reduce((sum, item) => sum + item[key], 0);
+  const promised = evaluations.filter((item) => item.state === "Promised");
+  const showToast = (message: string) => { setToast(message); window.setTimeout(() => setToast(""), 3000); };
 
-  return (
-    <div className="app-shell">
-      <aside className={sidebarOpen ? "sidebar open" : "sidebar"}>
-        <div className="brand"><div className="brand-mark">L</div><div><strong>LedgerLoop</strong><span>Receivables OS</span></div></div>
-        <div className="workspace"><div className="avatar">AK</div><div><b>Arjun Kapoor</b><small>Finance lead</small></div><ChevronRight size={16} /></div>
-        <nav>{(["Overview", "Priority", "Customers", "Drafts"] as View[]).map((item) => {
-          const Icon = item === "Overview" ? LayoutDashboard : item === "Priority" ? SlidersHorizontal : item === "Customers" ? WalletCards : Mail;
-          return <button key={item} className={view === item ? "nav-item active" : "nav-item"} onClick={() => { setView(item); setSidebarOpen(false); }}>
-            <Icon size={18} /><span>{item}</span>{item === "Priority" && <em>{priority.length}</em>}
-          </button>;
-        })}</nav>
-        <div className="sidebar-bottom"><button className="nav-item"><Settings2 size={18} /><span>Settings</span></button><div className="safe-card"><ShieldCheck size={19} /><div><b>Safe mode on</b><small>Nothing is sent automatically</small></div></div></div>
-      </aside>
-      <main className="main">
-        <header className="topbar"><button className="mobile-menu" onClick={() => setSidebarOpen(!sidebarOpen)}><Menu /></button><div className="breadcrumbs">Workspace <ChevronRight size={14} /> <b>{view}</b></div>
-          <div className="top-actions"><div className="search"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search invoices..." /></div><button className="icon-btn"><Bell size={18} /><i /></button><div className="top-avatar">AK</div></div>
-        </header>
-        <div className="content">
-          <section className="hero"><div><p className="eyebrow">MONDAY, 16 OCTOBER 2026</p><h1>Good morning, Arjun <span>✦</span></h1><p className="hero-copy">Here’s your receivables pulse. Focus on the accounts that need attention today.</p></div><div className="date-control"><label>Data as of</label><input type="date" value={asOf} onChange={(event) => setAsOf(event.target.value)} /></div></section>
-          {view === "Overview" && <Overview invoices={filtered} total={total} onSelect={setSelected} />}
-          {view === "Priority" && <Priority invoices={filtered} onSelect={setSelected} />}
-          {view === "Customers" && <Customers invoices={filtered} onSelect={setSelected} />}
-          {view === "Drafts" && <Drafts invoices={filtered} />}
-        </div>
-      </main>
-      {selected && <Detail invoice={selected} onClose={() => setSelected(null)} />}
-    </div>
-  );
+  const loadFile = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.name.toLowerCase().endsWith(".json")) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(String(reader.result));
+          const rows = data.records?.invoices ?? data.invoices ?? [];
+          setInvoices(rows.map((item: Record<string, unknown>) => ({ id: String(item.id ?? item.invoice_id), amount_inr: Number(item.amount_inr ?? item.amount), received_inr: Number(item.received_inr ?? item.received_amount ?? 0), due: String(item.due ?? item.due_date), disputed: Boolean(item.disputed), customer: String(item.customer) })));
+          showToast(`${file.name} loaded successfully`);
+        } catch { showToast("Could not read this JSON file"); }
+      };
+      reader.readAsText(file);
+    } else if (file.name.toLowerCase().endsWith(".csv")) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const lines = String(reader.result).trim().split(/\r?\n/);
+        const headers = lines.shift()?.split(",") ?? [];
+        const rows = lines.map((line) => Object.fromEntries(line.split(",").map((value, index) => [headers[index], value])));
+        setInvoices(rows.map((item) => ({ id: item.id ?? item.invoice_id, amount_inr: Number(item.amount_inr ?? item.amount), received_inr: Number(item.received_inr ?? item.received_amount ?? 0), due: item.due ?? item.due_date, disputed: item.disputed === "true", customer: item.customer })));
+        showToast(`${file.name} loaded successfully`);
+      };
+      reader.readAsText(file);
+    } else showToast("PDF review is available in the Streamlit app; upload JSON or CSV here");
+  };
+  const addBill = (bill: RawInvoice) => { setInvoices((current) => [...current, bill]); setNavigation("bills"); showToast("Bill saved in this session"); };
+  const exportResults = () => {
+    const blob = new Blob([JSON.stringify(evaluations, null, 2)], { type: "application/json" });
+    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "ledgerloop-result.json"; link.click(); URL.revokeObjectURL(link.href); showToast("Result export downloaded");
+  };
+
+  return <div className="app-shell">
+    <aside className={sidebarOpen ? "sidebar open" : "sidebar"}>
+      <div className="brand"><div className="brand-mark">₹</div><div><strong>Hisaabset</strong><span>Har payment ka clear hisab</span></div></div>
+      <div className="side-hint">Use the menu above to move around.<br />Import files and set filters here.</div>
+      <div className="side-section"><p>IMPORT DATA</p><label className="upload-control"><Upload size={16} /><span>Upload JSON, CSV or PDF</span><input type="file" accept=".json,.csv,.pdf" onChange={loadFile} /></label><button className="load-file" onClick={() => showToast("Choose a file above to load it")}><FolderOpen size={15} /> Load selected file</button></div>
+      <div className="side-section"><p>WORKSPACE</p><label className="side-label">As-of date<input type="date" value={asOf} onChange={(event) => setAsOf(event.target.value)} /></label><div className="filter-select"><SlidersHorizontal size={14} /><select value={filter[0] ?? ""} onChange={(event) => setFilter(event.target.value ? [event.target.value] : [])}><option value="">All customers</option>{customers.map((customer) => <option key={customer}>{customer}</option>)}</select></div></div>
+      <div className="side-note"><Mail size={15} /> Messages are for your review. Nothing is sent automatically.</div>
+      <div className="sidebar-bottom"><button className="nav-item"><Settings2 size={17} /><span>Settings</span></button><div className="safe-card"><ShieldCheck size={18} /><div><b>Safe mode on</b><small>Source data stays protected</small></div></div></div>
+    </aside>
+    <main className="main">
+      <header className="topbar"><button className="mobile-menu" onClick={() => setSidebarOpen(!sidebarOpen)}><Menu /></button><div className="breadcrumbs">Hisaabset <ChevronRight size={14} /> <b>{navigation === "add" ? "Add new bill" : navigation === "bills" ? "Your bills" : "Customers"}</b></div><div className="top-actions"><div className="search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search invoices..." /></div><button className="icon-btn"><Bell size={17} /><i /></button><div className="top-avatar">FL</div></div></header>
+      <div className="content">
+        {navigation === "add" && <AddBill onSave={addBill} />}
+        {navigation === "bills" && <><PageHeading eyebrow="HISAABSET WORKSPACE" title="Your bills" subtitle="Ranked by who is most late. Number 1 is the first to ask." asOf={asOf} /><div className="stats-grid compact"><Stat label="Outstanding" value={money(total("outstanding"))} tone="navy" icon={<WalletCards />} /><Stat label="Collectable" value={money(total("collectible"))} tone="teal" icon={<ArrowUpRight />} /><Stat label="Under review" value={money(total("review"))} tone="amber" icon={<AlertTriangle />} /><Stat label="Promised" value={String(promised.length)} tone="purple" icon={<Clock3 />} /></div><div className="tab-strip">{([["priority", "Priority list"], ["review", "Under review"], ["promised", "Promised"], ["safe", "Not yet due / Paid"], ["unapplied", "Unapplied receipts"], ["drafts", "Draft plan"], ["detail", "Invoice detail"]] as [Tab, string][]).map(([key, label]) => <button className={tab === key ? "tab active" : "tab"} key={key} onClick={() => setTab(key)}>{label}</button>)}</div><BillWorkspace tab={tab} evaluations={evaluations} onSelect={setSelected} onExport={exportResults} /></>}
+        {navigation === "customers" && <Customers evaluations={evaluations} onSelect={setSelected} onToast={showToast} />}
+      </div>
+    </main>
+    {selected && <Detail invoice={selected} onClose={() => setSelected(null)} onSave={(updated) => { setInvoices((items) => items.map((item) => item.id === updated.id ? updated : item)); setSelected(null); showToast("Review fields saved"); }} />}
+    {toast && <div className="toast"><Check size={16} />{toast}</div>}
+    <nav className="bottom-nav"><button className={navigation === "add" ? "active" : ""} onClick={() => setNavigation("add")}><Plus />Add bill</button><button className={navigation === "bills" ? "active" : ""} onClick={() => setNavigation("bills")}><LayoutDashboard />Your bills</button><button className={navigation === "customers" ? "active" : ""} onClick={() => setNavigation("customers")}><Users />Customers</button></nav>
+  </div>;
 }
 
-function StatCard({ label, value, sub, tone, icon }: { label: string; value: string; sub: string; tone: string; icon: React.ReactNode }) {
-  return <div className={`stat-card ${tone}`}><div className="stat-head"><span>{label}</span><span className="stat-icon">{icon}</span></div><strong>{value}</strong><small>{sub}</small></div>;
-}
+function PageHeading({ eyebrow, title, subtitle, asOf }: { eyebrow: string; title: string; subtitle: string; asOf?: string }) { return <section className="page-heading"><div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{subtitle}</p></div>{asOf && <div className="date-badge"><small>DATA AS OF</small><b>{asOf}</b></div>}</section>; }
+function Stat({ label, value, tone, icon }: { label: string; value: string; tone: string; icon: React.ReactNode }) { return <div className={`stat-card ${tone}`}><div className="stat-head"><span>{label}</span><span className="stat-icon">{icon}</span></div><strong>{value}</strong><small>Current selected view</small></div>; }
+function AddBill({ onSave }: { onSave: (bill: RawInvoice) => void }) { const [customer, setCustomer] = useState(""); const [id, setId] = useState(""); const [amount, setAmount] = useState(""); const [received, setReceived] = useState("0"); const [due, setDue] = useState(today); const [disputed, setDisputed] = useState(false); const [promise, setPromise] = useState(false); const [error, setError] = useState(""); const save = () => { const numeric = Number(amount); if (!customer.trim() || !id.trim()) return setError("Customer name and invoice number are required."); if (numeric <= 0) return setError("Invoice amount must be greater than zero."); if (Number(received) > numeric) return setError("Received amount cannot be greater than the invoice amount."); onSave({ id: id.trim(), customer: customer.trim(), amount_inr: numeric, received_inr: Number(received), due, disputed }); }; return <><PageHeading eyebrow="WELCOME TO HISAABSET" title="Add a new bill" subtitle="4 small steps. We work out the rest for you." /><section className="welcome-banner"><div><h2>Har payment ka clear hisab</h2><p>Apne bills upload karein, payment track karein aur har customer ka status ek nazar mein samjhein.</p></div><span>₹</span></section><div className="help-banner"><CircleHelp size={18} /><span>Start here: upload one invoice file, then press <b>Load selected file</b>. We calculate what is paid, what is due, and what needs attention.</span></div><section className="form-card"><FormTitle number="1" title="Customer and bill details" /><div className="form-grid"><Input label="Customer name *" value={customer} onChange={setCustomer} placeholder="Example: Raj Electronics Pvt Ltd" /><Input label="Invoice number *" value={id} onChange={setId} placeholder="Example: INV-1001" /><Input label="Invoice amount (₹) *" value={amount} onChange={setAmount} type="number" /><Input label="Already received (₹)" value={received} onChange={setReceived} type="number" /><Input label="Due date *" value={due} onChange={setDue} type="date" /></div><FormTitle number="2" title="Optional dispute information" /><label className="check-row"><input type="checkbox" checked={disputed} onChange={(event) => setDisputed(event.target.checked)} />Customer has a problem with this bill</label>{disputed && <div className="inline-callout"><AlertTriangle size={15} /> The disputed balance will be held under review and excluded from collection follow-up.</div>}<FormTitle number="3" title="Optional payment promise" /><label className="check-row"><input type="checkbox" checked={promise} onChange={(event) => setPromise(event.target.checked)} />Customer promised to pay</label>{promise && <div className="inline-callout teal"><Clock3 size={15} /> Promise detail fields can be completed in invoice review after saving.</div>}{error && <div className="form-error"><AlertTriangle size={15} />{error}</div>}<button className="primary-btn save-btn" onClick={save}><Check size={16} /> Save this bill</button></section></>; }
+function FormTitle({ number, title }: { number: string; title: string }) { return <div className="form-title"><span>{number}</span><h3>{title}</h3></div>; }
+function Input({ label, value, onChange, placeholder, type = "text" }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: string }) { return <label className="field"><span>{label}</span><input type={type} value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /></label>; }
 
-function Overview({ invoices, total, onSelect }: { invoices: Invoice[]; total: (key: "outstanding" | "collectible" | "review") => number; onSelect: (item: Invoice) => void }) {
-  const attention = invoices.filter((item) => item.state === "Collectable").slice(0, 4);
-  return <><div className="stats-grid"><StatCard label="Total outstanding" value={currency(total("outstanding"))} sub="Across 6 invoices" tone="navy" icon={<WalletCards />} /><StatCard label="Ready to collect" value={currency(total("collectible"))} sub="4 invoices need follow-up" tone="teal" icon={<ArrowUpRight />} /><StatCard label="Under review" value={currency(total("review"))} sub="1 dispute needs attention" tone="amber" icon={<CircleAlert />} /><StatCard label="Recovery this month" value="₹14,000" sub="↑ 18% vs last month" tone="purple" icon={<Check />} /></div>
-    <div className="section-grid"><section className="panel focus-panel"><div className="panel-title"><div><p className="eyebrow">TODAY'S FOCUS</p><h2>Collection priority</h2></div><button className="text-btn">View all <ArrowUpRight size={15} /></button></div><div className="priority-list">{attention.map((item, index) => <InvoiceRow key={item.id} item={item} rank={index + 1} onSelect={onSelect} />)}</div></section><section className="panel health-panel"><div className="panel-title"><div><p className="eyebrow">PORTFOLIO HEALTH</p><h2>Receivables at a glance</h2></div><MoreHorizontal size={19} color="#8ba0b0" /></div><div className="donut-wrap"><div className="donut"><div><b>₹46k</b><span>outstanding</span></div></div><div className="legend"><Legend color="#18a889" label="Ready to collect" value="78%" /><Legend color="#f0ae35" label="Under review" value="22%" /><Legend color="#d8e3e9" label="Paid" value="0%" /></div></div><div className="health-note"><Clock3 size={16} /><span>Average collection time is <b>18 days</b></span></div></section></div>
-    <section className="panel table-panel"><div className="panel-title"><div><p className="eyebrow">ALL INVOICES</p><h2>Recent receivables</h2></div><button className="filter-btn"><Download size={15} /> Export report</button></div><InvoiceTable invoices={invoices} onSelect={onSelect} /></section></>;
-}
-function Legend({ color, label, value }: { color: string; label: string; value: string }) { return <div className="legend-row"><i style={{ background: color }} /><span>{label}</span><b>{value}</b></div>; }
-function InvoiceRow({ item, rank, onSelect }: { item: Invoice; rank: number; onSelect: (item: Invoice) => void }) {
-  return <button className="invoice-row" onClick={() => onSelect(item)}><span className="rank">{String(rank).padStart(2, "0")}</span><span className="customer-dot">{item.customer.slice(-1)}</span><span className="invoice-main"><b>{item.customer}</b><small>{item.id} · {item.daysOverdue} days overdue</small></span><span className="row-amount"><b>{currency(item.collectible)}</b><small>{item.score?.toFixed(1)} priority score</small></span><ChevronRight size={17} className="row-arrow" /></button>;
-}
-function InvoiceTable({ invoices, onSelect }: { invoices: Invoice[]; onSelect: (item: Invoice) => void }) {
-  return <div className="invoice-table"><div className="table-row table-head"><span>INVOICE</span><span>CUSTOMER</span><span>AMOUNT</span><span>STATUS</span><span>DUE DATE</span><span /></div>{invoices.map((item) => <button className="table-row" key={item.id} onClick={() => onSelect(item)}><span className="invoice-id"><FileText size={16} />{item.id}</span><span>{item.customer}</span><b>{currency(item.outstanding)}</b><span><Status state={item.state} /></span><span>{item.due}</span><ChevronRight size={16} /></button>)}</div>;
-}
+function BillWorkspace({ tab, evaluations, onSelect, onExport }: { tab: Tab; evaluations: Invoice[]; onSelect: (invoice: Invoice) => void; onExport: () => void }) { const ranked = evaluations.filter((item) => item.state === "Collectable"); if (tab === "drafts") return <DraftPlan evaluations={evaluations} />; if (tab === "detail") return <section className="panel full-panel"><PanelTitle eyebrow="INVOICE DETAIL" title="Select an invoice to inspect" /><InvoiceTable evaluations={evaluations} onSelect={onSelect} /></section>; if (tab === "review") return <DataPanel eyebrow="DISPUTE WORKFLOW" title="Under review" columns={["Invoice", "Customer", "Review", "Cause", "Resolution"]} rows={evaluations.filter((item) => item.review > 0).map((item) => [item.id, item.customer, money(item.review), item.disputed ? "Dispute detail missing" : "-", "Pending"])} />; if (tab === "promised") return <DataPanel eyebrow="PROMISES TO PAY" title="Promised" columns={["Invoice", "Customer", "Promise date", "Promised", "Received", "Shortfall"]} rows={evaluations.filter((item) => item.state === "Promised").map((item) => [item.id, item.customer, "-", money(item.collectible), money(0), money(item.collectible)])} />; if (tab === "safe") return <><DataPanel eyebrow="SAFE TO WAIT" title="Not yet due" columns={["Invoice", "Customer", "Due date", "Outstanding"]} rows={evaluations.filter((item) => item.state === "Not due").map((item) => [item.id, item.customer, item.due, money(item.outstanding)])} /><DataPanel eyebrow="COMPLETED" title="Paid" columns={["Invoice", "Customer", "Paid amount"]} rows={evaluations.filter((item) => item.state === "Paid").map((item) => [item.id, item.customer, money(item.amount_inr)])} /> </>; if (tab === "unapplied") return <DataPanel eyebrow="RECONCILIATION" title="Unapplied receipts" columns={["Receipt", "Customer", "Amount", "Date"]} rows={[]} empty="No unapplied receipts in this fixture." />; return <section className="panel full-panel"><div className="panel-title"><PanelTitle eyebrow="ACTION QUEUE" title="Priority list" subtitle="Ranked by who is most late. Disputed money stays protected." /><button className="filter-btn" onClick={onExport}><ArrowDownToLine size={15} /> Export results</button></div><div className="priority-table">{ranked.map((item, index) => <button className="priority-line" key={item.id} onClick={() => onSelect(item)}><b className="rank">{index + 1}</b><span className="customer-dot">{item.customer.slice(-1)}</span><span className="line-main"><b>{item.customer}</b><small>{item.id} · {item.daysOverdue} days overdue · {item.ageing}</small></span><span className="line-money"><b>{money(item.collectible)}</b><small>score {item.score?.toFixed(1)}</small></span><ChevronRight size={16} /></button>)}</div></section>; }
+function PanelTitle({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle?: string }) { return <div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2>{subtitle && <p className="muted">{subtitle}</p>}</div>; }
+function DataPanel({ eyebrow, title, columns, rows, empty }: { eyebrow: string; title: string; columns: string[]; rows: string[][]; empty?: string }) { return <section className="panel full-panel data-panel"><PanelTitle eyebrow={eyebrow} title={title} />{rows.length ? <div className="data-table"><div className="data-row head">{columns.map((column) => <span key={column}>{column}</span>)}</div>{rows.map((row, index) => <div className="data-row" key={index}>{row.map((cell, cellIndex) => <span key={cellIndex}>{cell}</span>)}</div>)}</div> : <div className="empty-state"><Check size={22} />{empty ?? "Nothing to show in this view."}</div>}</section>; }
+function InvoiceTable({ evaluations, onSelect }: { evaluations: Invoice[]; onSelect: (invoice: Invoice) => void }) { return <div className="data-table invoice-data"><div className="data-row head"><span>Invoice</span><span>Customer</span><span>Amount</span><span>Status</span><span>Due date</span></div>{evaluations.map((item) => <button className="data-row" key={item.id} onClick={() => onSelect(item)}><span><FileText size={14} /> {item.id}</span><span>{item.customer}</span><span>{money(item.outstanding)}</span><span><Status state={item.state} /></span><span>{item.due}</span></button>)}</div>; }
 function Status({ state }: { state: State }) { return <span className={`status ${state.toLowerCase().replace(" ", "-")}`}><i />{state}</span>; }
-function Priority({ invoices, onSelect }: { invoices: Invoice[]; onSelect: (item: Invoice) => void }) { const rows = invoices.filter((item) => item.state === "Collectable"); return <section className="panel full-panel"><div className="panel-title"><div><p className="eyebrow">ACTION QUEUE</p><h2>Priority collection list</h2><p className="muted">Only collectible balances are ranked. Disputed money stays protected.</p></div><button className="filter-btn"><SlidersHorizontal size={15} /> Filter</button></div><div className="priority-large">{rows.map((item, index) => <InvoiceRow key={item.id} item={item} rank={index + 1} onSelect={onSelect} />)}</div></section>; }
-function Customers({ invoices, onSelect }: { invoices: Invoice[]; onSelect: (item: Invoice) => void }) { const customers = Array.from(new Set(invoices.map((item) => item.customer))); return <section className="panel full-panel"><div className="panel-title"><div><p className="eyebrow">CUSTOMER PORTFOLIO</p><h2>Customer accounts</h2><p className="muted">Evidence-based view of every retailer in the current fixture.</p></div><button className="filter-btn"><Download size={15} /> Export</button></div><div className="customer-grid">{customers.map((customer) => { const rows = invoices.filter((item) => item.customer === customer); const balance = rows.reduce((sum, item) => sum + item.outstanding, 0); const item = rows[0]; return <button className="customer-card" key={customer} onClick={() => onSelect(item)}><div className="customer-card-head"><span className="large-dot">{customer.slice(-1)}</span><span><b>{customer}</b><small>{rows.length} invoice{rows.length > 1 ? "s" : ""}</small></span><MoreHorizontal size={18} /></div><div className="customer-balance"><small>Outstanding</small><strong>{currency(balance)}</strong></div><div className="customer-card-foot"><Status state={item.state} /><span>View account <ChevronRight size={14} /></span></div></button>; })}</div></section>; }
-function Drafts({ invoices }: { invoices: Invoice[] }) { return <section className="panel full-panel"><div className="panel-title"><div><p className="eyebrow">REVIEW BEFORE SENDING</p><h2>Follow-up drafts</h2><p className="muted">These messages are templates only. Nothing is sent automatically.</p></div><span className="draft-badge"><ShieldCheck size={15} /> Safe mode</span></div><div className="draft-grid">{Array.from(new Set(invoices.map((item) => item.customer))).map((customer) => { const items = invoices.filter((item) => item.customer === customer); const due = items.reduce((sum, item) => sum + item.collectible, 0); return <div className="draft-card" key={customer}><div className="draft-card-head"><Mail size={18} /><b>{customer}</b><span>DRAFT</span></div><h3>{due > 0 ? `Payment reminder: ${currency(due)} due` : "Receivables update"}</h3><p>Hello {customer}, a friendly reminder regarding your open invoice. Could you please share the expected payment date?</p><div className="draft-footer"><span>DRAFT · not sent</span><button>Review draft <ChevronRight size={14} /></button></div></div>; })}</div></section>; }
-function Detail({ invoice, onClose }: { invoice: Invoice; onClose: () => void }) { return <div className="detail-overlay" onClick={onClose}><aside className="detail-drawer" onClick={(event) => event.stopPropagation()}><div className="drawer-head"><div><p className="eyebrow">INVOICE DETAIL</p><h2>{invoice.id}</h2></div><button className="icon-btn" onClick={onClose}><X size={19} /></button></div><div className="detail-customer"><span className="large-dot">{invoice.customer.slice(-1)}</span><div><b>{invoice.customer}</b><small>Customer account</small></div><Status state={invoice.state} /></div><div className="detail-amount"><small>Outstanding balance</small><strong>{currency(invoice.outstanding)}</strong><span>{invoice.collectible > 0 ? `${currency(invoice.collectible)} ready to collect` : "No collectible balance"}</span></div><div className="detail-facts"><Fact label="Invoice amount" value={currency(invoice.amount_inr)} /><Fact label="Received" value={currency(invoice.received_inr)} /><Fact label="Due date" value={invoice.due} /><Fact label="Ageing" value={`${invoice.daysOverdue} days · ${invoice.ageing}`} /></div>{invoice.disputed && <div className="warning-box"><CircleAlert size={18} /><div><b>Amount under review</b><p>{currency(invoice.review)} is held due to an open dispute. This amount is not included in follow-up drafts.</p></div></div>}<div className="explanation"><p className="eyebrow">WHY THIS STATUS</p><p>Invoice amount {currency(invoice.amount_inr)} less receipts of {currency(invoice.received_inr)}. {invoice.disputed ? "The disputed balance remains visible and protected." : "The remaining balance is eligible for collection."}</p></div><button className="primary-btn">Edit invoice details</button></aside></div>; }
+function DraftPlan({ evaluations }: { evaluations: Invoice[] }) { return <section className="panel full-panel"><PanelTitle eyebrow="HUMAN REVIEW ONLY" title="Draft follow-up plan" subtitle="Template-generated messages. Every draft is labelled DRAFT - not sent." /><div className="draft-grid">{[...new Set(evaluations.map((item) => item.customer))].map((customer) => { const items = evaluations.filter((item) => item.customer === customer); const collectible = items.reduce((sum, item) => sum + item.collectible, 0); return <article className="draft-card" key={customer}><div className="draft-head"><Mail size={17} /><b>{customer}</b><span>DRAFT</span></div><h3>{collectible ? `Payment reminder: ${money(collectible)} due` : "Receivables update"}</h3><textarea defaultValue={collectible ? `Hello ${customer}, a friendly reminder regarding invoice ${items[0].id} totalling ${money(collectible)}. Could you please share the payment date?` : `We are reviewing the account for ${customer}. We will update you after the next change.`} /><div className="draft-footer"><label><input type="checkbox" /> I reviewed the exact figures</label><button onClick={() => alert("Test mode: no message was delivered")}>Approve draft</button></div><small className="draft-safe"><ShieldCheck size={13} /> DRAFT - not sent</small></article>; })}</div></section>; }
+function Customers({ evaluations, onSelect, onToast }: { evaluations: Invoice[]; onSelect: (invoice: Invoice) => void; onToast: (message: string) => void }) { const customers = [...new Set(evaluations.map((item) => item.customer))].sort(); return <><PageHeading eyebrow="HISAABSET DIRECTORY" title="Customers" subtitle="See who owes you and open their invoices." /><section className="panel full-panel"><div className="panel-title"><PanelTitle eyebrow="CUSTOMER DIRECTORY" title="Retailer evidence" subtitle="Recommendations are evidence-based only. Finance approval is required." /><label className="reference-limit">Reference purchase amount (₹)<input type="number" defaultValue="100000" /></label></div><div className="customer-grid">{customers.map((customer) => { const items = evaluations.filter((item) => item.customer === customer); const outstanding = items.reduce((sum, item) => sum + item.outstanding, 0); const collectible = items.reduce((sum, item) => sum + item.collectible, 0); return <button className="customer-card" key={customer} onClick={() => onSelect(items[0])}><div className="customer-card-head"><span className="large-dot">{customer.slice(-1)}</span><span><b>{customer}</b><small>{items.length} invoice{items.length > 1 ? "s" : ""}</small></span></div><div className="customer-balance"><small>Outstanding</small><strong>{money(outstanding)}</strong></div><div className="customer-mini"><span>Collectable <b>{money(collectible)}</b></span><span>Risk <b>Insufficient history</b></span></div><div className="customer-card-foot"><Status state={items[0].state} /><span>View retailer evidence <ChevronRight size={13} /></span></div></button>; })}</div>{customers.length === 0 && <div className="empty-state"><Users size={22} />No customers yet. Add an invoice file to begin.</div>}</section><div className="customer-reminder"><ShieldCheck size={18} /><span><b>Finance manager reminder:</b> these are evidence-based suggestions only. Review retailer history before approving any purchasing limit or credit terms.</span></div><button className="export-wide" onClick={() => onToast("Customer evidence is ready for export")}><ArrowDownToLine size={15} /> Export customer evidence</button></>; }
+function Detail({ invoice, onClose, onSave }: { invoice: Invoice; onClose: () => void; onSave: (invoice: RawInvoice) => void }) { const [due, setDue] = useState(invoice.due); const [received, setReceived] = useState(String(invoice.received_inr)); const [disputed, setDisputed] = useState(invoice.disputed); const [settled, setSettled] = useState(false); return <div className="detail-overlay" onClick={onClose}><aside className="detail-drawer" onClick={(event) => event.stopPropagation()}><div className="drawer-head"><div><p className="eyebrow">INVOICE DETAIL</p><h2>{invoice.id} · {invoice.customer}</h2></div><button className="icon-btn" onClick={onClose}><X size={18} /></button></div><p className="explain">Invoice amount {money(invoice.amount_inr)}. Receipts applied {money(invoice.received_inr)}. Outstanding {money(invoice.outstanding)}: collectable {money(invoice.collectible)}, under review {money(invoice.review)}. Due {invoice.due}; {invoice.daysOverdue} days overdue ({invoice.ageing}).</p><div className="detail-facts"><Fact label="Amount" value={money(invoice.amount_inr)} /><Fact label="Receipts" value={money(invoice.received_inr)} /><Fact label="Outstanding" value={money(invoice.outstanding)} /><Fact label="Priority score" value={invoice.score?.toFixed(1) ?? "-"} /></div>{invoice.review > 0 && <div className="warning-box"><AlertTriangle size={17} /><span><b>Under review</b><small>{money(invoice.review)} is protected from collection follow-up.</small></span></div>}<div className="edit-fields"><h3>Dispute and promise review</h3><Input label="Agreed due date" value={due} onChange={setDue} type="date" /><Input label="Already received amount" value={received} onChange={setReceived} type="number" /><label className="check-row"><input type="checkbox" checked={settled} onChange={(event) => setSettled(event.target.checked)} />Customer agreed to settle for less</label><label className="check-row"><input type="checkbox" checked={disputed} onChange={(event) => setDisputed(event.target.checked)} />Invoice has an open dispute</label></div><button className="primary-btn" onClick={() => onSave({ ...invoice, due, received_inr: Number(received), disputed })}><Check size={16} /> Save review fields</button></aside></div>; }
 function Fact({ label, value }: { label: string; value: string }) { return <div><small>{label}</small><b>{value}</b></div>; }
 
 export default App;
