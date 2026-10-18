@@ -42,3 +42,12 @@ def test_nonexistent_user_fails():
 def test_missing_password_configuration_fails_closed(monkeypatch):
     monkeypatch.delenv("HISAABSET_AUTH_PASSWORD_HASH")
     assert authenticate_user("admin", "test-password") is None
+
+
+def test_default_demo_credentials_work(monkeypatch):
+    monkeypatch.delenv("HISAABSET_AUTH_PASSWORD_HASH", raising=False)
+    user = authenticate_user("admin", "hisaabset123")
+    assert user is not None
+    assert user == FINANCE_LEAD
+    assert user.role == "Finance Lead"
+

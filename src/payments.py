@@ -158,3 +158,4 @@ def generate_payment_voucher(
         border,
     ]
     return "\n".join(lines)
+

@@ -26,10 +26,17 @@ FINANCE_LEAD = User(
 )
 
 _VALID_USERNAMES = {"admin", "finance", "sszeeshu@gmail.com"}
+
+# PBKDF2-SHA256 (600,000 iterations) hash of default demo password "hisaabset123"
+_DEFAULT_DEMO_HASH = (
+    "6869736161627365742d70726f642d73616c742d32303236"
+    "$"
+    "71c0793b30f95fba5f226409a473c7272da295a9d7dfa55a2a5ce1f0383806b0"
+)
+
+
 def _password_matches(password: str) -> bool:
-    encoded_hash = os.getenv("HISAABSET_AUTH_PASSWORD_HASH", "").strip()
-    if not encoded_hash:
-        return False
+    encoded_hash = os.getenv("HISAABSET_AUTH_PASSWORD_HASH", "").strip() or _DEFAULT_DEMO_HASH
     try:
         salt_hex, digest_hex = encoded_hash.split("$", 1)
         salt = bytes.fromhex(salt_hex)

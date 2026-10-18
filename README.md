@@ -277,8 +277,8 @@ aws sts get-caller-identity
 ```
 
 AWS deployment is **live** on AWS ECS on Fargate in `ap-south-1` (Mumbai) with continuous 24/7 self-healing hosting (`desiredCount: 1`, container health checks):
-- **Live Endpoint:** `http://13.235.214.105:8501`
-- **Healthcheck:** `http://13.235.214.105:8501/_stcore/health` (HTTP 200 OK)
+- **Live Endpoint:** `http://3.110.130.28:8501`
+- **Healthcheck:** `http://3.110.130.28:8501/_stcore/health` (HTTP 200 OK)
 
 Use a dedicated deployment identity or AWS SSO. Never use root credentials,
 never create keys for ECS task roles, and never commit AWS credentials.

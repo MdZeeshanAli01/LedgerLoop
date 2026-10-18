@@ -1446,11 +1446,39 @@ def _render_login_page() -> None:
         unsafe_allow_html=True,
     )
 
+    # ⚡ One-Click Quick Evaluation Access
+    st.markdown(
+        """
+        <div style="max-width:560px; margin:0 auto 14px; background:#eef8f5; border:1px solid #bce2d8; border-radius:16px; padding:16px 20px; text-align:center;">
+            <div style="font-size:11px; font-weight:800; color:#087f72; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:4px;">
+                ⚡ Fast Demo Access for Judges & Evaluators
+            </div>
+            <div style="font-size:13px; color:#2d665d; margin-bottom:6px;">
+                Single Authorized Role: <b>Finance Lead (Zeeshan Ali)</b><br>
+                Credentials: <code>admin</code> · Password: <code>hisaabset123</code>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    quick_cols = st.columns([1, 4, 1])
+    with quick_cols[1]:
+        if st.button("⚡ One-Click Quick Login as Finance Lead", use_container_width=True, type="primary"):
+            st.session_state.authenticated = True
+            st.session_state.current_user = FINANCE_LEAD
+            st.rerun()
+
+    st.markdown(
+        '<div style="max-width:560px; margin:14px auto 10px; text-align:center; color:#8ba4a0; font-size:12px;">— or sign in with credentials —</div>',
+        unsafe_allow_html=True,
+    )
+
     with st.form("login-form", clear_on_submit=False):
         st.markdown('<div class="ll-login-kicker">Secure workspace access</div>', unsafe_allow_html=True)
         st.markdown("#### Sign in to your account")
-        username = st.text_input("Username or Email", placeholder="Enter your work email or username")
-        password = st.text_input("Password", type="password", placeholder="Enter your password")
+        username = st.text_input("Username or Email", value="admin", placeholder="Enter your work email or username")
+        password = st.text_input("Password", value="hisaabset123", type="password", placeholder="Enter your password")
         submit = st.form_submit_button("Sign in to Hisaabset", use_container_width=True)
 
         if submit:

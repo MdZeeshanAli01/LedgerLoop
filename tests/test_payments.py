@@ -146,3 +146,4 @@ def test_payment_voucher_generation():
     assert "INR 150,000.00" in voucher
     assert "PAID & CLOSED" in voucher
     assert "Finance Lead (Md Zeeshan Ali)" in voucher
+
