@@ -21,6 +21,7 @@ rootkey*.csv
 
 # Caches and coverage
 __pycache__/
+*.tsbuildinfo
 .cache/
 .pytest_cache/
 .mypy_cache/
