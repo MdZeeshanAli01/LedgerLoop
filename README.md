@@ -150,3 +150,29 @@ approval validates the message but no email is delivered.
 - MBA pricing, growth, customer research, and pitch work are outside the
   engineering scope. An MBA-entry snapshot should be added only when the MBA
   team actually joins.
+
+## Production foundation
+
+The original Streamlit workflow remains available for the seeded demo. A
+separate production API foundation now lives in [`backend/`](./backend/):
+
+- PostgreSQL-compatible durable invoice, receipt, and audit models.
+- Organization-scoped queries and unique invoice/receipt constraints.
+- Cognito/OIDC JWT validation hooks.
+- Roles for `finance_admin`, `finance_manager`, `collector`, and `auditor`.
+- Append-only audit-event recording for mutating API actions.
+- A health endpoint and non-root backend container.
+- Explicit fixture seeding for the initial demo organization.
+
+Run the API locally with:
+
+```powershell
+python -m uvicorn backend.main:app --reload --port 8000
+python -m backend.seed
+```
+
+The API is intentionally not treated as complete production authorization by
+default. Configure `LEDGERLOOP_OIDC_ISSUER`, `LEDGERLOOP_OIDC_AUDIENCE`, and
+`LEDGERLOOP_OIDC_JWKS_URL` before enabling authenticated access. Production
+deployment still requires managed PostgreSQL, secret management, migrations,
+TLS/ALB, backups, monitoring, and a formal Cognito user-pool/group policy.
