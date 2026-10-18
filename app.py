@@ -133,20 +133,32 @@ def _inject_styles() -> None:
           padding:10px 13px; border-radius:10px 10px 0 0; }
         .stTabs [role="tab"][aria-selected="true"] { color:#087f72 !important; background:#dff5ef; }
         [data-testid="stRadio"] > label { display:none; }
+        [data-testid="stRadio"] { margin:0 0 27px; }
         [data-testid="stRadio"] [role="radiogroup"] {
-          display:flex; gap:8px; padding:7px; margin:0 0 22px;
-          background:rgba(255,255,255,.78); border:1px solid var(--ll-border);
-          border-radius:17px; box-shadow:0 6px 16px rgba(23,59,59,.06);
+          display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px; padding:7px;
+          margin:0; background:rgba(255,255,255,.72); border:1px solid #c9dfdb;
+          border-radius:19px; box-shadow:0 12px 28px rgba(23,59,59,.08);
+          backdrop-filter:blur(14px);
         }
         [data-testid="stRadio"] [role="radiogroup"] label {
-          flex:1; justify-content:center; border-radius:11px; padding:11px 13px;
-          color:var(--ll-muted) !important; font-weight:800; transition:all .2s ease;
+          min-height:54px; justify-content:center; border:1px solid transparent; border-radius:13px;
+          padding:10px 14px; color:#64817d !important; font-size:13px; font-weight:800;
+          line-height:1.2; transition:all .22s cubic-bezier(.22,1,.36,1);
         }
-        [data-testid="stRadio"] [role="radiogroup"] label:hover { background:#e2f2ef; }
+        [data-testid="stRadio"] [role="radiogroup"] label:hover {
+          color:#087f72 !important; border-color:#b8ded7; background:#effaf7;
+          transform:translateY(-2px); box-shadow:0 5px 12px rgba(8,127,114,.08);
+        }
         [data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) {
-          background:#087f72; color:#fff !important; box-shadow:0 4px 10px rgba(8,127,114,.2);
+          border-color:#0a9180; color:#fff !important;
+          background:linear-gradient(135deg,#087f72,#109985);
+          box-shadow:0 8px 18px rgba(8,127,114,.24);
+          transform:translateY(-1px);
         }
         [data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) * { color:#fff !important; }
+        [data-testid="stRadio"] [role="radiogroup"] label > div:first-child {
+          width:0; min-width:0; margin:0; overflow:hidden; opacity:0;
+        }
         [data-testid="stHeader"] { background:#eef4f3 !important; }
         [data-testid="stToolbar"] { background:transparent !important; }
         [data-testid="stDecoration"] { background:#087f72 !important; height:3px !important; }
@@ -280,10 +292,23 @@ def _inject_styles() -> None:
           transform:translateY(-2px); filter:saturate(1.08); box-shadow:0 9px 20px rgba(8,127,114,.22) !important; }
         .stButton > button:active, [data-testid="stFormSubmitButton"] button:active { transform:translateY(0); }
         [data-testid="stSidebar"] { box-shadow:8px 0 30px rgba(23,59,59,.04); }
-        [data-testid="stSidebar"] [data-testid="stFileUploader"] section { border-radius:14px !important;
+        [data-testid="stSidebar"] [data-testid="stFileUploader"] section { min-height:124px; border-radius:16px !important;
+          border:1px dashed #82aba9 !important; background:rgba(255,255,255,.7) !important;
           transition:transform .2s ease, border-color .2s ease, background .2s ease; }
         [data-testid="stSidebar"] [data-testid="stFileUploader"] section:hover { transform:translateY(-2px);
           border-color:#42ad99 !important; background:#f0fbf8 !important; }
+        [data-testid="stSidebar"] [data-testid="stFileUploader"] section small {
+          color:#79928f !important; font-size:10px !important; }
+        [data-testid="stSidebar"] .stButton > button {
+          min-height:43px !important; border-radius:11px !important;
+          background:linear-gradient(135deg,#1769e8,#2b7df0) !important;
+          box-shadow:0 7px 15px rgba(37,99,235,.18) !important; }
+        [data-testid="stSidebar"] .stDateInput input {
+          min-height:43px !important; border-radius:12px !important; padding-left:13px !important;
+          background:rgba(255,255,255,.82) !important; }
+        [data-testid="stSidebar"] [data-baseweb="select"] > div {
+          min-height:43px !important; border-radius:12px !important;
+          background:rgba(255,255,255,.82) !important; }
         .stMarkdown h2, .stMarkdown h3 { letter-spacing:-.025em; }
         .stCaption { color:#75908e !important; }
         .stAlert { border-radius:13px !important; box-shadow:0 5px 15px rgba(23,59,59,.045); }
@@ -326,13 +351,22 @@ def _inject_styles() -> None:
         [data-testid="stMetric"]:nth-child(2) { border-top-color:#1ca587; }
         [data-testid="stMetric"]:nth-child(3) { border-top-color:#e0a62d; }
         [data-testid="stMetric"]:nth-child(4) { border-top-color:#6958a8; }
-        [data-testid="stSidebar"] { background:linear-gradient(180deg,#f8fcfb 0%,#eff8f5 100%) !important; }
-        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap:.65rem; }
+        [data-testid="stSidebar"] { background:
+          radial-gradient(circle at 12% 0%,rgba(100,211,190,.14),transparent 30%),
+          linear-gradient(180deg,#fbfefd 0%,#f0f8f6 100%) !important;
+          box-shadow:10px 0 32px rgba(23,59,59,.07); }
+        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap:.55rem; }
+        [data-testid="stSidebar"] .block-container { padding:2rem 1.55rem 2.5rem; }
+        [data-testid="stSidebar"] hr { margin:17px 0 19px !important; border-color:#cfe3df !important; }
+        [data-testid="stSidebar"] .stSubheader, [data-testid="stSidebar"] h2,
+        [data-testid="stSidebar"] h3 { margin-top:8px !important; margin-bottom:7px !important; }
         [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color:#173b3b !important; letter-spacing:-.03em; }
         .ll-footer-note { display:flex; align-items:center; justify-content:center; gap:8px; margin:28px 0 0;
           padding:13px 16px; border-top:1px solid #d6e8e3; color:#698783; font-size:10px; text-align:center; }
         .ll-footer-note b { color:#2d665d; }
         @media (max-width:800px) {
+          [data-testid="stRadio"] [role="radiogroup"] { gap:4px; padding:5px; }
+          [data-testid="stRadio"] [role="radiogroup"] label { min-height:48px; padding:8px 6px; font-size:11px; }
           .ll-command-header { display:block; min-height:205px; padding:22px; }
           .ll-command-status { min-width:0; width:max-content; max-width:100%; margin-top:18px; }
           .ll-command-header:after { right:18px; top:30px; opacity:.5; }
