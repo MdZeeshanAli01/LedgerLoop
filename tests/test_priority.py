@@ -129,7 +129,30 @@ def test_age_score_is_capped_at_ninety_days():
     assert evaluation.days_overdue == 120
     assert age_points == Decimal("45.00")
     assert AGE_CAP == 90
+    assert total == Decimal("88.33333333333333333333333333")
+
+
+def test_age_escalation_starts_after_ninety_days():
+    item = make_invoice("INV1", due=date(2026, 7, 18))
+    evaluation = evaluate_all([item], [], date(2026, 10, 16))[0]
+    total, age_points, amount_points, promise_points = priority_score(
+        evaluation, evaluation.collectable_amount
+    )
+
+    assert evaluation.days_overdue == 90
+    assert age_points == Decimal("45.00")
+    assert amount_points == Decimal("35.00")
+    assert promise_points == Decimal("0.00")
     assert total == Decimal("80.00")
+
+
+def test_age_escalation_reaches_half_at_one_hundred_thirty_five_days():
+    item = make_invoice("INV1", due=date(2026, 6, 3))
+    evaluation = evaluate_all([item], [], date(2026, 10, 16))[0]
+    total, _, _, _ = priority_score(evaluation, evaluation.collectable_amount)
+
+    assert evaluation.days_overdue == 135
+    assert total == Decimal("90.00")
 
 
 def test_broken_promise_explanation_includes_shortfall_and_score():
@@ -147,3 +170,4 @@ def test_broken_promise_explanation_includes_shortfall_and_score():
 
     assert "Promise missed, shortfall 4000." in text
     assert "Score 77.5" in text
+    assert "age escalation 0." in text

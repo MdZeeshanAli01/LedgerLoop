@@ -36,6 +36,11 @@ class Invoice:
     customer: str
     amount: Decimal
     due_date: date
+    vendor_name: str | None = None
+    vendor_gstin: str | None = None
+    vendor_address: str | None = None
+    vendor_phone: str | None = None
+    vendor_email: str | None = None
     received_amount: Decimal = Decimal("0.00")
     invoice_date: date | None = None
     disputed: bool = False
@@ -45,6 +50,9 @@ class Invoice:
     dispute_resolution: str = "none"
     replacement_delivered: bool = False
     credit_amount: Decimal = Decimal("0.00")
+    settlement_agreed: bool = False
+    settlement_amount: Decimal | None = None
+    settlement_note: str | None = None
     promise_made_date: date | None = None
     promise_date: date | None = None
     promise_amount: Decimal | None = None
@@ -298,9 +306,19 @@ def load_fixture(path: str | Path) -> LoadResult:
             customer=str(customer),
             amount=amount,
             due_date=due_date,
+            vendor_name=raw.get("vendor_name"),
+            vendor_gstin=raw.get("vendor_gstin"),
+            vendor_address=raw.get("vendor_address"),
+            vendor_phone=raw.get("vendor_phone"),
+            vendor_email=raw.get("vendor_email"),
             received_amount=received or Decimal("0.00"),
             invoice_date=invoice_date,
             disputed=bool(raw.get("disputed", raw.get(FIELD_MAP["disputed"], False))),
+            settlement_agreed=bool(raw.get("settlement_agreed", False)),
+            settlement_amount=_optional_money(
+                raw.get("settlement_amount"), row_number, "settlement_amount", errors
+            ),
+            settlement_note=raw.get("settlement_note"),
         )
         _normalize_dispute(raw, invoice, row_number, errors)
         _normalize_promise(raw, invoice, row_number, errors)

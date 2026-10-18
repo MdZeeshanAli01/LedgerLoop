@@ -88,10 +88,17 @@ def draft_for_customer(
 ) -> dict[str, str]:
     """Create one unsent draft for a customer from evaluated invoices."""
     items = [item for item in invoice_evals if item.customer == customer]
+    collectable = _collectable(items)
+    total = sum((item.collectable_amount for item in collectable), Decimal("0.00"))
+    subject = (
+        f"Payment reminder: {_amount(total)} due - {customer}"
+        if total > 0
+        else f"Receivables update - {customer}"
+    )
     return {
         "customer": customer,
         "status": "DRAFT - not sent",
-        "subject": f"Receivables follow-up for {customer}",
+        "subject": subject,
         "body": _draft_body(items),
     }
 

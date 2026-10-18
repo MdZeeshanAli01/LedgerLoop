@@ -67,6 +67,13 @@ def validate_dispute(invoice: Invoice, applied: Decimal) -> list[str]:
         disputed is None or invoice.credit_amount > disputed
     ):
         errors.append("credit_amount cannot exceed disputed_amount")
+    if invoice.settlement_agreed:
+        if invoice.settlement_amount is None:
+            errors.append("settlement_agreed requires a settlement_amount")
+        elif invoice.settlement_amount < 0:
+            errors.append("settlement_amount cannot be negative")
+        elif invoice.settlement_amount > invoice.amount - applied:
+            errors.append("settlement_amount cannot exceed the current balance")
     if resolution == "credit_note" and invoice.credit_amount <= 0:
         errors.append("credit_note requires a credit_amount")
     if resolution in {"replace_goods", "credit_note"} and invoice.dispute_cause not in VALID_CAUSES:
@@ -115,6 +122,10 @@ def explain(invoice_eval: InvoiceEval) -> str:
         f"collectable {_display(invoice_eval.collectable_amount)}, "
         f"under review {_display(invoice_eval.review_amount)}."
     )
+    if invoice.settlement_agreed and invoice.settlement_amount is not None:
+        parts.append(
+            f"Settlement agreed: {_display(invoice.settlement_amount)} payable."
+        )
     parts.append(
         f"Due {invoice.due_date.isoformat()}, {invoice_eval.days_overdue} days overdue "
         f"({invoice_eval.ageing_bucket}) as of {invoice_eval.as_of_date.isoformat()}."
@@ -137,6 +148,7 @@ def explain(invoice_eval: InvoiceEval) -> str:
         parts.append(
             f"Score {_display(invoice_eval.score)} = age {_display(invoice_eval.age_points)} "
             f"+ amount {_display(invoice_eval.amount_points)} + broken promise "
-            f"{_display(invoice_eval.promise_points)}."
+            f"{_display(invoice_eval.promise_points)} + age escalation "
+            f"{_display(invoice_eval.escalation_points)}."
         )
     return " ".join(parts)

@@ -126,7 +126,10 @@ LedgerLoop/
   note and shortfall.
 - Ignore promises on paid invoices.
 - Rank only collectible invoices using:
-  `100 * (0.45 * age_score + 0.35 * amount_score + 0.20 * broken_promise)`.
+  `Base = 100 * (0.45 * age_score + 0.35 * amount_score + 0.20 * broken_promise)`.
+  For invoices older than 90 days, use
+  `E = 0.25 + 0.5 * min((days_overdue - 90) / 90, 1)` and
+  `Priority = Base + (100 - Base) * E`. `E` is zero at 90 days or less.
 - Use `AGE_CAP = 90`; normalize amount against the largest ranked collectible
   amount, or `1.0` when only one invoice is ranked.
 - Sort by unrounded score descending, overdue days descending, collectible

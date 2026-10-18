@@ -1,0 +1,58 @@
+{
+  "family": "hisaabset",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/<ECS_EXECUTION_ROLE>",
+  "taskRoleArn": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/<HISAABSET_TASK_ROLE>",
+  "containerDefinitions": [
+    {
+      "name": "hisaabset",
+      "image": "<ECR_IMAGE_URI>",
+      "essential": true,
+      "portMappings": [
+        {
+          "name": "streamlit",
+          "containerPort": 8501,
+          "hostPort": 8501,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "AWS_REGION",
+          "value": "ap-south-1"
+        },
+        {
+          "name": "HISAABSET_EMAIL_SENDER",
+          "value": "unnamedinsect424@gmail.com"
+        },
+        {
+          "name": "HISAABSET_EMAIL_TEST_MODE",
+          "value": "true"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/hisaabset",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health')\" || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 30
+      }
+    }
+  ]
+}

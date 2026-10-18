@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .loader import ValidationError
+from .negotiated import RecoveryAgreement, RecoveryProgress
 from .rules import InvoiceEval, W_AGE, W_AMOUNT, W_PROMISE, AGE_CAP
 
 
@@ -42,6 +43,9 @@ def evaluation_record(evaluation: InvoiceEval) -> dict[str, Any]:
         "dispute_resolution": invoice.dispute_resolution,
         "replacement_delivered": invoice.replacement_delivered,
         "credit_amount": invoice.credit_amount,
+        "settlement_agreed": invoice.settlement_agreed,
+        "settlement_amount": invoice.settlement_amount,
+        "settlement_note": invoice.settlement_note,
         "promise_made_date": invoice.promise_made_date,
         "promise_date": invoice.promise_date,
         "promise_amount": invoice.promise_amount,
@@ -64,6 +68,7 @@ def evaluation_record(evaluation: InvoiceEval) -> dict[str, Any]:
         "age_points": evaluation.age_points,
         "amount_points": evaluation.amount_points,
         "promise_points": evaluation.promise_points,
+        "escalation_points": evaluation.escalation_points,
     }
     from .disputes import explain
     record["explanation"] = explain(evaluation)
@@ -95,6 +100,47 @@ def write_starting_state(
 ) -> None:
     """Persist the first computed result without mutating source input."""
     write_result_json(evals, path)
+
+
+def negotiated_record(progress: RecoveryProgress) -> dict[str, Any]:
+    agreement = progress.agreement
+    return _value({
+        "agreement_id": agreement.agreement_id,
+        "retailer": agreement.retailer,
+        "previous_invoice_id": agreement.previous_invoice_id,
+        "actual_bep": agreement.actual_bep,
+        "recovery_floor": agreement.recovery_floor,
+        "target_type": agreement.target_type.value,
+        "agreed_target": agreement.agreed_target,
+        "upfront_percent": agreement.upfront_percent,
+        "credit_percent": agreement.credit_percent,
+        "credit_period_days": agreement.credit_period_days,
+        "baseline_collected": agreement.baseline_collected,
+        "agreement_date": agreement.agreement_date,
+        "note": agreement.note,
+        "agreement_status": agreement.status.value,
+        "approved_by": agreement.approved_by,
+        "approved_at": agreement.approved_at,
+        "approval_note": agreement.approval_note,
+        "recovered_amount": progress.recovered_amount,
+        "remaining_amount": progress.remaining_amount,
+        "excess_amount": progress.excess_amount,
+        "invoice_outstanding": progress.invoice_outstanding,
+        "invoice_balance_after_target": progress.invoice_balance_after_target,
+        "recovery_status": progress.status.value,
+        "next_order_eligible": progress.next_order_eligible,
+    })
+
+
+def write_negotiated_json(
+    progresses: Iterable[RecoveryProgress], path: str | Path
+) -> None:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        json.dumps([negotiated_record(item) for item in progresses], indent=2),
+        encoding="utf-8",
+    )
 
 
 def _error_text(error: ValidationError | str) -> str:

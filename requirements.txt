@@ -1,3 +1,6 @@
 streamlit
 pandas
 pytest
+pypdf
+pdfplumber
+boto3

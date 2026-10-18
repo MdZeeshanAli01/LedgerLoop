@@ -1,6 +1,6 @@
 import csv
 import json
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from src.export import (
@@ -9,6 +9,13 @@ from src.export import (
     write_result_csv,
     write_result_json,
     write_starting_state,
+    negotiated_record,
+)
+from src.negotiated import (
+    AgreementStatus,
+    RecoveryAgreement,
+    RecoveryProgress,
+    RecoveryTargetType,
 )
 from src.loader import Invoice, ValidationError
 from src.rules import evaluate_all
@@ -77,3 +84,30 @@ def test_starting_state_and_evidence_log(tmp_path):
     assert "44 passed out of 44" in text
     assert "must be positive" in text
     assert "Figures come from synthetic data" in text
+
+
+def test_negotiated_export_is_json_safe(tmp_path):
+    agreement = RecoveryAgreement(
+        "AGR-1", "C1", "INV1", Decimal("15000"), Decimal("15000"),
+        RecoveryTargetType.EXACT_BEP, Decimal("15000"),
+        status=AgreementStatus.APPROVED,
+        approved_by="Manager",
+        approved_at=datetime(2026, 10, 18, 10, 0),
+        approval_note="Reviewed.",
+    )
+    progress = RecoveryProgress(
+        agreement=agreement,
+        recovered_amount=Decimal("12000"),
+        remaining_amount=Decimal("3000"),
+        excess_amount=Decimal("0"),
+        invoice_outstanding=Decimal("15000"),
+        invoice_balance_after_target=Decimal("0"),
+        status=AgreementStatus.PARTIALLY_RECOVERED,
+        next_order_eligible=False,
+    )
+
+    record = negotiated_record(progress)
+
+    assert record["agreed_target"] == "15000.00"
+    assert record["approved_at"] == "2026-10-18T10:00:00"
+    json.dumps(record)

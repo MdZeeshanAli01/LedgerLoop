@@ -37,6 +37,7 @@ class InvoiceEval:
     age_points: Decimal = Decimal("0.00")
     amount_points: Decimal = Decimal("0.00")
     promise_points: Decimal = Decimal("0.00")
+    escalation_points: Decimal = Decimal("0.00")
 
     @property
     def invoice_id(self) -> str:
@@ -87,6 +88,8 @@ def applied_receipts(invoice: Invoice, receipts: list[Receipt], as_of: date) -> 
 
 
 def credit_applied(invoice: Invoice) -> Decimal:
+    if invoice.settlement_agreed and invoice.settlement_amount is not None:
+        return _money(max(Decimal("0.00"), invoice.amount - invoice.settlement_amount))
     if invoice.dispute_resolution == "credit_note":
         return _money(invoice.credit_amount)
     return Decimal("0.00")
@@ -201,7 +204,7 @@ def evaluate_all(
 def priority_score(
     evaluation: InvoiceEval, max_collectable: Decimal
 ) -> tuple[Decimal, Decimal, Decimal, Decimal]:
-    """Return total score and its displayed component points."""
+    """Return total score and base component points with ageing escalation."""
     age_score = min(evaluation.days_overdue, AGE_CAP) / Decimal(AGE_CAP)
     amount_score = (
         Decimal("1.00")
@@ -216,7 +219,16 @@ def priority_score(
     age_points = Decimal("100") * W_AGE * age_score
     amount_points = Decimal("100") * W_AMOUNT * amount_score
     promise_points = Decimal("100") * W_PROMISE * promise_score
-    total = age_points + amount_points + promise_points
+    base = age_points + amount_points + promise_points
+    if evaluation.days_overdue <= AGE_CAP:
+        escalation = Decimal("0.00")
+    else:
+        excess_age = min(
+            Decimal(evaluation.days_overdue - AGE_CAP) / Decimal(AGE_CAP),
+            Decimal("1.00"),
+        )
+        escalation = Decimal("0.25") + Decimal("0.50") * excess_age
+    total = base + (Decimal("100.00") - base) * escalation
     return total, age_points, amount_points, promise_points
 
 
@@ -239,6 +251,12 @@ def ranked_collectable(evaluations: list[InvoiceEval]) -> list[InvoiceEval]:
             evaluation.amount_points,
             evaluation.promise_points,
         ) = priority_score(evaluation, max_collectable)
+        base = (
+            evaluation.age_points
+            + evaluation.amount_points
+            + evaluation.promise_points
+        )
+        evaluation.escalation_points = evaluation.score - base
     return sorted(
         ranked,
         key=lambda evaluation: (

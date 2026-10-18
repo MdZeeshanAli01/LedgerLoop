@@ -25,6 +25,7 @@ def test_early_overdue_draft_uses_collectable_amount_and_gentle_tone():
 
     assert draft["status"] == "DRAFT - not sent"
     assert "totalling 10000" in draft["body"]
+    assert draft["subject"] == "Payment reminder: 10000 due - C1"
     assert "friendly reminder" in draft["body"]
     assert "send" not in draft
 

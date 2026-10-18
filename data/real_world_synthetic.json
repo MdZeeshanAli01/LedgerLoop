@@ -1,0 +1,220 @@
+{
+  "case_id": "HISAABSET-REAL-WORLD-SYNTHETIC",
+  "synthetic": true,
+  "data_version": "retailer-workflow-v1",
+  "currency": "INR",
+  "purpose": "End-to-end usability and decision-support scenarios; not production data.",
+  "records": {
+    "as_of": "2026-10-18",
+    "invoices": [
+      {
+        "id": "RW-001-PARTIAL",
+        "customer": "Aarav General Store",
+        "amount_inr": 100000,
+        "received_inr": 40000,
+        "invoice_date": "2026-08-15",
+        "due": "2026-09-15",
+        "disputed": false
+      },
+      {
+        "id": "RW-002-PAID-ONTIME",
+        "customer": "Aarav General Store",
+        "amount_inr": 75000,
+        "received_inr": 75000,
+        "invoice_date": "2026-08-01",
+        "due": "2026-09-01",
+        "disputed": false
+      },
+      {
+        "id": "RW-003-DISPUTE-OPEN",
+        "customer": "Bharat Retail Hub",
+        "amount_inr": 90000,
+        "received_inr": 10000,
+        "invoice_date": "2026-08-20",
+        "due": "2026-09-20",
+        "disputed": true,
+        "dispute_status": "open",
+        "disputed_amount": 30000,
+        "dispute_cause": "damaged_goods",
+        "dispute_resolution": "pending"
+      },
+      {
+        "id": "RW-004-REPLACEMENT",
+        "customer": "Bharat Retail Hub",
+        "amount_inr": 60000,
+        "received_inr": 0,
+        "invoice_date": "2026-08-10",
+        "due": "2026-09-10",
+        "disputed": true,
+        "dispute_status": "resolved",
+        "disputed_amount": 20000,
+        "dispute_cause": "damaged_goods",
+        "dispute_resolution": "replace_goods",
+        "replacement_delivered": true
+      },
+      {
+        "id": "RW-005-CREDIT-NOTE",
+        "customer": "Chaitanya Pharmacy",
+        "amount_inr": 80000,
+        "received_inr": 20000,
+        "invoice_date": "2026-07-15",
+        "due": "2026-08-15",
+        "disputed": true,
+        "dispute_status": "resolved",
+        "disputed_amount": 15000,
+        "dispute_cause": "short_delivery",
+        "dispute_resolution": "credit_note",
+        "credit_amount": 15000
+      },
+      {
+        "id": "RW-006-PROMISE-ACTIVE",
+        "customer": "Deepak Supermart",
+        "amount_inr": 110000,
+        "received_inr": 20000,
+        "invoice_date": "2026-09-01",
+        "due": "2026-10-01",
+        "disputed": false,
+        "promise_made_date": "2026-10-10",
+        "promise_date": "2026-10-25",
+        "promise_amount": 90000
+      },
+      {
+        "id": "RW-007-PROMISE-BROKEN",
+        "customer": "Deepak Supermart",
+        "amount_inr": 50000,
+        "received_inr": 0,
+        "invoice_date": "2026-07-01",
+        "due": "2026-08-01",
+        "disputed": false,
+        "promise_made_date": "2026-09-01",
+        "promise_date": "2026-09-15",
+        "promise_amount": 50000
+      },
+      {
+        "id": "RW-008-PROMISE-KEPT",
+        "customer": "Esha Wholesale Mart",
+        "amount_inr": 60000,
+        "received_inr": 0,
+        "invoice_date": "2026-08-01",
+        "due": "2026-09-01",
+        "disputed": false,
+        "promise_made_date": "2026-09-10",
+        "promise_date": "2026-09-20",
+        "promise_amount": 45000
+      },
+      {
+        "id": "RW-009-SETTLEMENT",
+        "customer": "Farhan Convenience Store",
+        "amount_inr": 120000,
+        "received_inr": 0,
+        "invoice_date": "2026-07-01",
+        "due": "2026-08-01",
+        "disputed": false,
+        "settlement_agreed": true,
+        "settlement_amount": 90000,
+        "settlement_note": "Finance manager approved final settlement after customer negotiation."
+      },
+      {
+        "id": "RW-010-OVERPAID",
+        "customer": "Gopal Traders",
+        "amount_inr": 30000,
+        "received_inr": 35000,
+        "invoice_date": "2026-09-01",
+        "due": "2026-10-01",
+        "disputed": false
+      },
+      {
+        "id": "RW-011-FUTURE",
+        "customer": "Hema New Retailer",
+        "amount_inr": 70000,
+        "received_inr": 0,
+        "invoice_date": "2026-10-20",
+        "due": "2026-11-20",
+        "disputed": false
+      },
+      {
+        "id": "RW-012-HIGH-RISK",
+        "customer": "Indus Market",
+        "amount_inr": 150000,
+        "received_inr": 0,
+        "invoice_date": "2026-03-01",
+        "due": "2026-04-01",
+        "disputed": false
+      }
+    ],
+    "receipts": [
+      {
+        "receipt_id": "RW-R001",
+        "invoice_id": "RW-001-PARTIAL",
+        "customer": "Aarav General Store",
+        "amount": 10000,
+        "receipt_date": "2026-10-01"
+      },
+      {
+        "receipt_id": "RW-R002",
+        "invoice_id": "RW-006-PROMISE-ACTIVE",
+        "customer": "Deepak Supermart",
+        "amount": 20000,
+        "receipt_date": "2026-10-12"
+      },
+      {
+        "receipt_id": "RW-R003",
+        "invoice_id": "RW-007-PROMISE-BROKEN",
+        "customer": "Deepak Supermart",
+        "amount": 5000,
+        "receipt_date": "2026-09-20"
+      },
+      {
+        "receipt_id": "RW-R004",
+        "invoice_id": "RW-008-PROMISE-KEPT",
+        "customer": "Esha Wholesale Mart",
+        "amount": 45000,
+        "receipt_date": "2026-09-20"
+      },
+      {
+        "receipt_id": "RW-R005",
+        "invoice_id": "RW-002-PAID-ONTIME",
+        "customer": "Aarav General Store",
+        "amount": 75000,
+        "receipt_date": "2026-08-30"
+      },
+      {
+        "receipt_id": "RW-R006-UNAPPLIED",
+        "invoice_id": "",
+        "customer": "Unknown Retailer",
+        "amount": 12500,
+        "receipt_date": "2026-10-05"
+      },
+      {
+        "receipt_id": "RW-R007-FUTURE",
+        "invoice_id": "RW-001-PARTIAL",
+        "customer": "Aarav General Store",
+        "amount": 5000,
+        "receipt_date": "2026-11-01"
+      }
+    ]
+  },
+  "complaint_cases": [
+    {
+      "complaint_id": "RW-C001",
+      "retailer": "Bharat Retail Hub",
+      "invoice_id": "RW-003-DISPUTE-OPEN",
+      "description": "Damaged cartons reported; distributor validation pending.",
+      "status": "open"
+    },
+    {
+      "complaint_id": "RW-C002",
+      "retailer": "Bharat Retail Hub",
+      "invoice_id": "RW-004-REPLACEMENT",
+      "description": "Second damaged-goods complaint; replacement delivered.",
+      "status": "verified_distributor_fault"
+    },
+    {
+      "complaint_id": "RW-C003",
+      "retailer": "Indus Market",
+      "invoice_id": "RW-012-HIGH-RISK",
+      "description": "Repeated damage complaint requires inspection.",
+      "status": "inspection_required"
+    }
+  ]
+}

@@ -137,3 +137,18 @@ def test_changing_as_of_recomputes_ageing_without_mutating_invoice():
     assert first.ageing_bucket == "1-30"
     assert second.days_overdue == 31
     assert second.ageing_bucket == "31-60"
+
+
+def test_agreed_settlement_reduces_outstanding_without_changing_invoice_amount():
+    invoice = make_invoice(
+        amount="10000",
+        settlement_agreed=True,
+        settlement_amount=Decimal("7000"),
+    )
+
+    evaluation = evaluate_all([invoice], [], AS_OF)[0]
+
+    assert invoice.amount == Decimal("10000")
+    assert evaluation.credit_applied == Decimal("3000.00")
+    assert evaluation.outstanding == Decimal("7000.00")
+    assert evaluation.collectable_amount == Decimal("7000.00")
