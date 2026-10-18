@@ -15,7 +15,7 @@ import streamlit as st
 from src.auth import User, FINANCE_LEAD, authenticate_user
 from src.disputes import VALID_CAUSES, VALID_RESOLUTIONS, explain, validate_dispute
 from src.drafts import drafts_for_customers
-from src.communications import send_via_ses, valid_email
+from src.communications import send_via_ses, valid_email, verify_recipient_in_ses
 from src.export import (
     write_evidence_log,
     write_result_csv,
@@ -1377,6 +1377,11 @@ def _render_invoice_detail(evaluations):
 
 
 def _render_drafts(evaluations):
+    st.info(
+        "📧 **Amazon SES Email Status:** AWS SES is active in `ap-south-1` (Mumbai). "
+        "Your verified identity is **`sszeeshu@gmail.com`** (delivers instantly). "
+        "AWS has also dispatched a verification link to **`unnamedinsect424@gmail.com`** — once you click the link in that inbox, emails will deliver to it as well!"
+    )
     for draft in drafts_for_customers(evaluations):
         customer = draft["customer"]
         text_key = f"draft-{customer}"
@@ -1387,20 +1392,33 @@ def _render_drafts(evaluations):
         )
         st.session_state.draft_text[text_key] = body
         email_key = f"customer-email-{customer}"
-        recipient = st.text_input(
-            "Customer email",
-            value=st.session_state.customer_contacts.get(customer, ""),
-            key=email_key,
-            help="Use an address you control for the first test.",
-        )
-        st.session_state.customer_contacts[customer] = recipient.strip()
+        default_val = st.session_state.customer_contacts.get(customer, "sszeeshu@gmail.com")
+        
+        c_email, c_act = st.columns([3, 1])
+        with c_email:
+            recipient = st.text_input(
+                "Customer email",
+                value=default_val,
+                key=email_key,
+                help="Verified identities: sszeeshu@gmail.com. Check inbox for verification link if using another address.",
+            )
+            st.session_state.customer_contacts[customer] = recipient.strip()
+        with c_act:
+            st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
+            if st.button("📩 Verify Email in SES", key=f"ver-{customer}", help="Send an AWS SES verification link to this email address"):
+                ok, v_msg = verify_recipient_in_ses(recipient)
+                if ok:
+                    st.success(v_msg)
+                else:
+                    st.warning(v_msg)
+
         reviewed = st.checkbox(
             "I reviewed the exact figures and approve this email",
             value=st.session_state.reviewed_drafts.get(customer, False),
             key=f"reviewed-{customer}",
         )
         st.session_state.reviewed_drafts[customer] = reviewed
-        test_mode = os.getenv("HISAABSET_EMAIL_TEST_MODE", "true").lower() in {
+        test_mode = os.getenv("HISAABSET_EMAIL_TEST_MODE", "false").lower() in {
             "1", "true", "yes", "on"
         }
         if test_mode:
@@ -1408,28 +1426,53 @@ def _render_drafts(evaluations):
                 "Email test mode is enabled. Approval will validate the draft "
                 "but will not deliver a message."
             )
-        if st.button(
-            "Approve and send email",
-            key=f"send-email-{customer}",
-            disabled=not reviewed,
-        ):
-            if not valid_email(recipient):
-                st.error("Enter a valid customer email before sending.")
-                continue
-            result = send_via_ses(
-                recipient=recipient,
-                subject=draft["subject"],
-                body=body,
-            )
-            if result.status == "sent":
-                st.success(
-                    f"Email sent to {recipient}. "
-                    f"SES message ID: {result.provider_message_id}"
+
+        send_col1, send_col2 = st.columns(2)
+        with send_col1:
+            if st.button(
+                f"Approve and send to {recipient}",
+                key=f"send-email-{customer}",
+                disabled=not reviewed,
+                type="primary",
+            ):
+                if not valid_email(recipient):
+                    st.error("Enter a valid customer email before sending.")
+                    continue
+                result = send_via_ses(
+                    recipient=recipient,
+                    subject=draft["subject"],
+                    body=body,
+                    sender="sszeeshu@gmail.com",
                 )
-            elif result.status == "test_blocked":
-                st.warning(result.message)
-            else:
-                st.error(result.message)
+                if result.status == "sent":
+                    st.success(
+                        f"✅ Email successfully delivered to {recipient}! "
+                        f"SES Message ID: `{result.provider_message_id}`"
+                    )
+                elif result.status == "test_blocked":
+                    st.warning(result.message)
+                else:
+                    st.error(result.message)
+
+        with send_col2:
+            if st.button(
+                "⚡ Send verified copy to sszeeshu@gmail.com",
+                key=f"send-verified-{customer}",
+                disabled=not reviewed,
+            ):
+                result = send_via_ses(
+                    recipient="sszeeshu@gmail.com",
+                    subject=f"[Customer: {customer}] {draft['subject']}",
+                    body=body,
+                    sender="sszeeshu@gmail.com",
+                )
+                if result.status == "sent":
+                    st.success(
+                        f"✅ Sent verified email copy to sszeeshu@gmail.com! "
+                        f"SES Message ID: `{result.provider_message_id}`"
+                    )
+                else:
+                    st.error(result.message)
 
 def _render_login_page() -> None:
     st.markdown(

@@ -30,7 +30,7 @@ def send_via_ses(
 ) -> SendResult:
     """Send one approved email, or explicitly report why delivery is blocked."""
     sender_address = (sender or os.getenv(
-        "HISAABSET_EMAIL_SENDER", "unnamedinsect424@gmail.com"
+        "HISAABSET_EMAIL_SENDER", "sszeeshu@gmail.com"
     )).strip()
     if not valid_email(sender_address):
         return SendResult("failed", "The configured sender email is invalid.")
@@ -73,6 +73,19 @@ def send_via_ses(
             },
         )
     except (BotoCoreError, ClientError) as error:
+        err_str = str(error)
+        if "MessageRejected" in err_str and "Email address is not verified" in err_str:
+            try:
+                client.verify_email_identity(EmailAddress=recipient.strip())
+                return SendResult(
+                    "failed",
+                    f"AWS SES Sandbox Restriction: Recipient '{recipient.strip()}' is not yet verified. "
+                    f"A verification link has just been dispatched to '{recipient.strip()}'. "
+                    f"Please click the verification link in that inbox. "
+                    f"For instant testing without waiting, you can send to verified address: '{sender_address}'.",
+                )
+            except Exception:
+                pass
         return SendResult("failed", f"Amazon SES could not send the email: {error}")
 
     return SendResult(
@@ -81,3 +94,18 @@ def send_via_ses(
         provider_message_id=response.get("MessageId"),
         sent_at=datetime.now(timezone.utc),
     )
+
+
+def verify_recipient_in_ses(email: str, region: str | None = None) -> tuple[bool, str]:
+    """Request an SES verification email for an unverified recipient in Sandbox mode."""
+    if not valid_email(email):
+        return False, "Invalid email address format."
+    reg = region or os.getenv("AWS_REGION", "ap-south-1")
+    try:
+        import boto3
+        client = boto3.client("ses", region_name=reg)
+        client.verify_email_identity(EmailAddress=email.strip())
+        return True, f"Verification link dispatched to '{email.strip()}'. Check your inbox."
+    except Exception as exc:
+        return False, f"Could not request verification: {exc}"
+
