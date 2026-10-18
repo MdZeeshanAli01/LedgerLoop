@@ -489,6 +489,8 @@ def _load_source(
 def _initialize_state():
     if "load_result" not in st.session_state:
         result, source = _load_source(None)
+        if result.as_of_date < date(1900, 1, 1):
+            result.as_of_date = date.today()
         st.session_state.load_result = result
         st.session_state.source_name = source
         st.session_state.as_of_date = result.as_of_date
@@ -1185,7 +1187,11 @@ def main():
                 upload, manual_due_date, manual_received_amount
             )
             st.rerun()
-        as_of = st.date_input("As-of date", value=st.session_state.as_of_date)
+        stored_as_of = st.session_state.get("as_of_date", date.today())
+        if stored_as_of < date(1900, 1, 1):
+            stored_as_of = date.today()
+            st.session_state.as_of_date = stored_as_of
+        as_of = st.date_input("As-of date", value=stored_as_of)
         st.session_state.as_of_date = as_of
         customers = sorted({invoice.customer for invoice in result.invoices})
         customer_filter = st.multiselect("Customer filter", customers)
