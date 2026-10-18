@@ -365,6 +365,33 @@ def _inject_styles() -> None:
         .ll-footer-note { display:flex; align-items:center; justify-content:center; gap:8px; margin:28px 0 0;
           padding:13px 16px; border-top:1px solid #d6e8e3; color:#698783; font-size:10px; text-align:center; }
         .ll-footer-note b { color:#2d665d; }
+        .ll-login-shell { max-width:560px; margin:3.5rem auto 0; }
+        .ll-login-brand { text-align:center; padding:0 0 1.4rem; }
+        .ll-login-logo { width:72px; height:72px; display:grid; place-items:center; margin:0 auto 14px;
+          border-radius:24px; background:linear-gradient(145deg,#087f72,#39b79b); color:#fff;
+          font-size:36px; font-weight:800; box-shadow:0 16px 28px rgba(8,127,114,.24); }
+        .ll-login-name { color:#173b3b; font-size:39px; font-weight:800; letter-spacing:-.05em; line-height:1; }
+        .ll-login-tag { color:#087f72; font-size:11px; font-weight:800; letter-spacing:.13em; margin-top:12px; }
+        .ll-login-copy { color:#64817d; font-size:13px; margin-top:10px; }
+        .ll-login-kicker { display:flex; align-items:center; justify-content:center; gap:8px; margin:0 0 12px;
+          color:#087f72; font-size:10px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
+        .ll-login-kicker:before, .ll-login-kicker:after { content:""; width:34px; height:1px; background:#b9d9d3; }
+        [data-testid="stForm"] { border-radius:22px !important; border:1px solid #c9dfdb !important;
+          background:rgba(255,255,255,.82) !important; box-shadow:0 18px 42px rgba(23,59,59,.09) !important;
+          padding:24px !important; }
+        [data-testid="stForm"] h4 { margin-top:0 !important; font-size:20px !important; letter-spacing:-.03em; }
+        .ll-login-demo { margin-top:18px; padding:14px 16px; border:1px solid #d6e8e3; border-radius:16px;
+          background:rgba(246,251,249,.88); color:#557070; font-size:11px; line-height:1.55; text-align:left; }
+        .ll-login-demo b { color:#2d665d; }
+        .ll-login-trust { display:flex; justify-content:center; gap:18px; flex-wrap:wrap; margin-top:18px;
+          color:#789090; font-size:10px; font-weight:700; }
+        .ll-login-trust span { display:inline-flex; align-items:center; gap:5px; }
+        .ll-login-trust i { width:6px; height:6px; border-radius:50%; background:#20a786; }
+        @media (max-width:800px) {
+          .ll-login-shell { margin:1.5rem auto 0; }
+          .ll-login-name { font-size:32px; }
+          [data-testid="stForm"] { padding:18px !important; }
+        }
         @media (max-width:800px) {
           [data-testid="stRadio"] [role="radiogroup"] { gap:4px; padding:5px; }
           [data-testid="stRadio"] [role="radiogroup"] label { min-height:48px; padding:8px 6px; font-size:11px; }
@@ -1079,66 +1106,60 @@ def _render_drafts(evaluations):
                 st.error(result.message)
 
 def _render_login_page() -> None:
-    left, center, right = st.columns([1, 2, 1])
-    with center:
-        st.markdown(
-            """
-            <div style="text-align:center; padding: 25px 0 10px;">
-                <div style="display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:18px; background:linear-gradient(135deg,#087f72,#39b79b); color:#fff; font-size:30px; font-weight:800; box-shadow:0 8px 20px rgba(8,127,114,.25);">₹</div>
-                <div style="font-size:32px; font-weight:800; color:#173b3b; margin-top:8px;">Hisaabset</div>
-                <div style="color:#087f72; font-size:13px; font-weight:800; letter-spacing:0.04em;">HAR PAYMENT KA CLEAR HISAB</div>
-                <div style="color:#557070; font-size:14px; margin-top:6px;">B2B Distributor Receivables & Retailer Credit Management Desk</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    st.markdown(
+        """
+        <div class="ll-login-shell">
+          <div class="ll-login-brand">
+            <div class="ll-login-logo">₹</div>
+            <div class="ll-login-name">Hisaabset</div>
+            <div class="ll-login-tag">HAR PAYMENT KA CLEAR HISAB</div>
+            <div class="ll-login-copy">Receivables command center for finance teams</div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-        with st.form("login-form", clear_on_submit=False):
-            st.markdown("#### Sign in to your account")
-            username = st.text_input("Username or Email", placeholder="e.g. admin or finance@hisaabset.com")
-            password = st.text_input("Password", type="password", placeholder="Enter your password")
-            submit = st.form_submit_button("Sign in to Hisaabset")
+    with st.form("login-form", clear_on_submit=False):
+        st.markdown('<div class="ll-login-kicker">Secure workspace access</div>', unsafe_allow_html=True)
+        st.markdown("#### Sign in to your account")
+        username = st.text_input("Username or Email", placeholder="Enter your work email or username")
+        password = st.text_input("Password", type="password", placeholder="Enter your password")
+        submit = st.form_submit_button("Sign in to Hisaabset", use_container_width=True)
 
-            if submit:
-                if not username.strip() or not password:
-                    st.error("Please enter both username and password.")
+        if submit:
+            if not username.strip() or not password:
+                st.error("Please enter both username and password.")
+            else:
+                user = authenticate_user(username, password)
+                if user:
+                    st.session_state.authenticated = True
+                    st.session_state.current_user = user
+                    st.success(f"Welcome back, {user.display_name}! Loading your workspace...")
+                    st.rerun()
                 else:
-                    user = authenticate_user(username, password)
-                    if user:
-                        st.session_state.authenticated = True
-                        st.session_state.current_user = user
-                        st.success(f"Welcome back, {user.display_name}! Loading your workspace...")
-                        st.rerun()
-                    else:
-                        st.error("Invalid username or password. Please check your credentials.")
+                    st.error("Invalid username or password. Please check your credentials.")
 
-        st.markdown(
-            """
-            <div style="text-align:center; color:#557070; font-size:12px; font-weight:800; margin: 18px 0 10px; letter-spacing:0.04em;">
-                ── OR QUICK LOGIN ──
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    if st.button("⚡  Continue with Finance Lead demo", use_container_width=True, key="demo-admin"):
+        st.session_state.authenticated = True
+        st.session_state.current_user = FINANCE_LEAD
+        st.rerun()
 
-        if st.button("⚡ Quick Login as Finance Lead (Zeeshan Ali)", use_container_width=True, key="demo-admin"):
-            st.session_state.authenticated = True
-            st.session_state.current_user = FINANCE_LEAD
-            st.rerun()
-
-        st.markdown(
-            """
-            <div style="background:#f4f8f7; border:1px solid #c9dcda; border-radius:14px; padding:12px 16px; margin-top:16px; font-size:12px; color:#386563; line-height:1.6;">
-                <b>Finance Lead Login Credentials:</b><br>
-                • <b>Username:</b> <code>admin</code> (or <code>finance</code> / <code>sszeeshu@gmail.com</code>)<br>
-                • <b>Password:</b> <code>[credential-rotated]</code>
-            </div>
-            <div style="text-align:center; color:#789090; font-size:11px; margin-top:14px;">
-                Protected by Enterprise Access Gatekeeper · TLS Encrypted Session
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    st.markdown(
+        """
+        <div class="ll-login-shell">
+          <div class="ll-login-demo"><b>Demo access</b><br>
+          Use the Finance Lead demo above, or sign in with the configured demo account.
+          Production deployments should connect this screen to enterprise SSO.</div>
+          <div class="ll-login-trust">
+            <span><i></i>Session protected</span>
+            <span><i></i>Finance workspace</span>
+            <span><i></i>Review before action</span>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def main():
