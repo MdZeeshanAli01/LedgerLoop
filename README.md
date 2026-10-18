@@ -5,7 +5,7 @@ Fynd × NMIMS Hyderabad engineering case.
 
 ## Project requirements
 
-See [`PROJECT_REQUIREMENTS.md`](./PROJECT_REQUIREMENTS.md) for the consolidated
+See [`docs/PROJECT_REQUIREMENTS.md`](./docs/PROJECT_REQUIREMENTS.md) for the consolidated
 requirements, acceptance criteria, and phased development checklist derived from
 the supplied C28 documents.
 
@@ -25,7 +25,7 @@ Use Python 3.10 or later:
 
 ```powershell
 python -m pip install -r requirements.txt
-python -m streamlit run app.py
+python -m streamlit run app/app.py
 ```
 
 The default input is [`data/fixture.json`](./data/fixture.json). The sidebar also
@@ -128,7 +128,7 @@ only when ready:
 $env:HISAABSET_EMAIL_SENDER = "unnamedinsect424@gmail.com"
 $env:AWS_REGION = "ap-south-1"
 $env:HISAABSET_EMAIL_TEST_MODE = "false"
-python -m streamlit run app.py --server.port 8501
+python -m streamlit run app/app.py --server.port 8501
 ```
 
 The sender must be verified in Amazon SES. In SES sandbox mode, the recipient
@@ -138,7 +138,7 @@ approval validates the message but no email is delivered.
 
 ## Evidence and limitations
 
-- [`CONTEXT.md`](./CONTEXT.md) records the engineering scope and business rules.
+- [`docs/CONTEXT.md`](./docs/CONTEXT.md) records the engineering scope and business rules.
 - [`docs/assumptions.md`](./docs/assumptions.md) separates observed fixture facts
   from design assumptions and known gaps.
 - [`data/extra_synthetic.json`](./data/extra_synthetic.json) demonstrates partial

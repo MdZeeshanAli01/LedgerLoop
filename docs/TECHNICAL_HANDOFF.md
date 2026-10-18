@@ -3,7 +3,7 @@
 **Project:** Hisaabset  
 **Repository:** `MdZeeshanAli01/LedgerLoop`  
 **Product tagline:** *Har payment ka clear hisab*  
-**Application entry point:** `app.py`  
+**Application entry point:** `app/app.py`
 **Current runtime:** Streamlit on `http://localhost:8501`  
 **Document purpose:** This is the canonical technical and product-context handoff for developers, reviewers, and future AI models.
 
@@ -107,7 +107,8 @@ Changing one must not accidentally rewrite another.
 
 ```text
 LedgerLoop/
-├── app.py                         Streamlit UI and session orchestration
+├── app/
+│   └── app.py                     Streamlit UI and session orchestration
 ├── src/
 │   ├── loader.py                  Input contracts, parsing, normalization, validation
 │   ├── rules.py                   Invoice balances, ageing, promises, priority
@@ -125,10 +126,10 @@ LedgerLoop/
 ├── docs/
 │   ├── TECHNICAL_HANDOFF.md       This canonical technical context
 │   ├── MBA_GUIDE.md               Business-oriented explanation
-│   └── assumptions.md             Observed facts versus assumptions
-├── .streamlit/config.toml         Light Hisaabset theme
-├── PROJECT_REQUIREMENTS.md        Original requirements and phased plan
-├── CONTEXT.md                     Earlier engineering scope/context
+│   ├── CONTEXT.md                 Earlier engineering scope/context
+│   ├── PROJECT_REQUIREMENTS.md    Original requirements and phased plan
+│   ├── assumptions.md             Observed facts versus assumptions
+│   └── reference/                 Supplied product and case documents
 ├── README.md                      Setup and feature overview
 └── requirements.txt               Runtime/test dependencies
 ```
@@ -136,7 +137,7 @@ LedgerLoop/
 ### 4.1 Dependency direction
 
 ```text
-app.py
+app/app.py
  ├── loader.py
  ├── rules.py ── disputes.py
  ├── drafts.py
@@ -145,7 +146,7 @@ app.py
  └── export.py ── rules.py, negotiated.py
 ```
 
-The domain modules are mostly pure functions and dataclasses. Streamlit-specific state and rendering belong in `app.py`.
+The domain modules are mostly pure functions and dataclasses. Streamlit-specific state and rendering belong in `app/app.py`.
 
 ---
 
@@ -237,7 +238,7 @@ Invalid input is reported explicitly through validation errors; it is not conver
 
 ### 6.1 Startup
 
-`app.py` calls `_initialize_state()`:
+`app/app.py` calls `_initialize_state()`:
 
 1. Loads the default fixture.
 2. Stores `LoadResult` in `st.session_state.load_result`.
@@ -926,7 +927,7 @@ Run:
 
 ```powershell
 python -m pytest -q
-python -m compileall -q app.py src tests
+python -m compileall -q app src tests
 git diff --check
 ```
 
@@ -983,7 +984,7 @@ When changing a core calculation, add a failing regression test first, then upda
 
 1. Add it to `Invoice`.
 2. Add parsing and validation in `loader.py`.
-3. Add manual UI input in `app.py`.
+3. Add manual UI input in `app/app.py`.
 4. Add PDF extraction only if the field is reliably present.
 5. Add the field to exports.
 6. Add focused loader/UI/export tests.
@@ -1075,7 +1076,7 @@ To run any JSON scenario:
 1. Start the app:
 
    ```powershell
-   python -m streamlit run app.py --server.port 8501
+   python -m streamlit run app/app.py --server.port 8501
    ```
 
 2. Open `http://localhost:8501`.
@@ -1307,7 +1308,7 @@ To test optional cases through the invoice-detail editor:
 ### 22.7 PDF-entry workflow
 
 Use **sidebar → Import data → upload PDF** with a computer-generated invoice
-such as [`invoice_51109301.pdf`](../invoice_51109301.pdf).
+such as [`invoice_51109301.pdf`](../data/source_documents/invoice_51109301.pdf).
 
 1. Upload one PDF.
 2. Confirm extracted invoice number, customer, amount, and invoice date.
@@ -1426,7 +1427,7 @@ When a future AI receives a bug report, it should:
 
    ```powershell
    python -m pytest -q
-   python -m compileall -q app.py src tests
+   python -m compileall -q app src tests
    git diff --check
    ```
 
@@ -1439,7 +1440,7 @@ When a future AI receives a bug report, it should:
 
 The current communication channel is Amazon SES email. The implementation is
 in [`src/communications.py`](../src/communications.py), and the UI integration
-is in `app.py` under `_render_drafts()`.
+is in `app/app.py` under `_render_drafts()`.
 
 ### 23.1 Current behavior
 
@@ -1545,7 +1546,7 @@ records.
 The repository includes a secret-free deployment bundle:
 
 ```text
-Dockerfile
+deploy/docker/streamlit.Dockerfile
 .dockerignore
 .env.example
 deploy/aws/

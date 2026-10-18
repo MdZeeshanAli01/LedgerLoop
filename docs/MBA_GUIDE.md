@@ -91,13 +91,13 @@ From the project folder, run:
 
 ```powershell
 python -m pip install -r requirements.txt
-python -m streamlit run app.py
+python -m streamlit run app/app.py
 ```
 
 Open `http://localhost:8501` in a browser. The default input is
 `data/fixture.json`.
 
-The Streamlit interface is implemented in `app.py`. Business calculations are
+The Streamlit interface is implemented in `app/app.py`. Business calculations are
 kept in the `src` modules so that the rules can be tested independently of the
 screen.
 

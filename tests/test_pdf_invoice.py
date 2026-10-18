@@ -66,7 +66,7 @@ def test_provided_invoice_layout_extracts_vendor_customer_gross_total_and_issue_
     from src.pdf_invoice import extract_invoice_pdf
 
     payload, errors = extract_invoice_pdf(
-        Path("invoice_51109301.pdf"),
+        Path("data", "source_documents", "invoice_51109301.pdf"),
         as_of_date=date(2026, 10, 17),
     )
 
