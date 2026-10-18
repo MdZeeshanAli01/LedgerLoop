@@ -104,13 +104,22 @@ python -m streamlit run app/app.py --server.port 8501
 
 ## Demo login
 
-The current local demo includes a Finance Lead authentication screen. It is
-intended for demonstration only and is not enterprise SSO.
+The current local workflow includes a Finance Lead authentication screen. It
+requires a deployment-managed password hash and is not enterprise SSO.
 
-The login page supports the configured demo aliases and a quick Finance Lead
-demo action. Do not copy demo credentials into production. For production,
+The login page supports configured Finance Lead aliases. There is no login
+bypass or quick-login action. For production,
 replace this local session gate with Cognito/OIDC and remove any source-level
-demo credentials.
+local authentication.
+
+Generate a password hash without placing the password in source code:
+
+```powershell
+$env:HISAABSET_AUTH_PASSWORD_HASH = "<salt_hex>$<pbkdf2_digest_hex>"
+```
+
+Store this value in the local environment, Streamlit secrets, or AWS Secrets
+Manager. If it is missing or malformed, authentication fails closed.
 
 ## Main workflow
 

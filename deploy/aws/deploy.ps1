@@ -49,6 +49,8 @@ $template = $template.Replace("<AWS_ACCOUNT_ID>", $accountId)
 $template = $template.Replace("<ECS_EXECUTION_ROLE>", "ecsTaskExecutionRole")
 $template = $template.Replace("<HISAABSET_TASK_ROLE>", "HisaabsetEcsTaskRole")
 $template = $template.Replace("<ECR_IMAGE_URI>", $image)
+$template = $template.Replace("<AWS_REGION>", $Region)
+$template = $template.Replace("<VERIFIED_SES_IDENTITY>", $env:HISAABSET_VERIFIED_SES_IDENTITY)
 $definition = $template | ConvertFrom-Json
 $emailMode = $definition.containerDefinitions[0].environment |
     Where-Object { $_.name -eq "HISAABSET_EMAIL_TEST_MODE" }

@@ -88,5 +88,8 @@ Task role: HisaabsetEcsTaskRole
 ```
 
 The task role should have only the SES send policy, restricted to the verified
-sender address. Do not put root access keys in Docker, ECS environment
-variables, GitHub, or this repository.
+sender identity. Before attaching the policy, replace
+`<AWS_REGION>`, `<AWS_ACCOUNT_ID>`, and `<VERIFIED_SES_IDENTITY>` in
+`hisaabset-ses-task-policy.json` with the approved identity values. Do not put
+root access keys in Docker, ECS environment variables, GitHub, or this
+repository.

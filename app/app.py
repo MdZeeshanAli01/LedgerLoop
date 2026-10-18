@@ -1140,17 +1140,13 @@ def _render_login_page() -> None:
                 else:
                     st.error("Invalid username or password. Please check your credentials.")
 
-    if st.button("⚡  Continue with Finance Lead demo", use_container_width=True, key="demo-admin"):
-        st.session_state.authenticated = True
-        st.session_state.current_user = FINANCE_LEAD
-        st.rerun()
-
     st.markdown(
         """
         <div class="ll-login-shell">
-          <div class="ll-login-demo"><b>Demo access</b><br>
-          Use the Finance Lead demo above, or sign in with the configured demo account.
-          Production deployments should connect this screen to enterprise SSO.</div>
+          <div class="ll-login-demo"><b>Protected workspace</b><br>
+          Sign in with the Finance Lead account configured by the deployment
+          administrator. Production deployments should connect this screen to
+          enterprise SSO.</div>
           <div class="ll-login-trust">
             <span><i></i>Session protected</span>
             <span><i></i>Finance workspace</span>

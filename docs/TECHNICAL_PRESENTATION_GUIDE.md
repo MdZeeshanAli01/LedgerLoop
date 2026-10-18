@@ -2,7 +2,7 @@
 
 **Project Name:** Hisaabset (*Har payment ka clear hisab*)  
 **Repository:** `https://github.com/MdZeeshanAli01/LedgerLoop.git`  
-**Live Application URL:** `http://13.126.83.182:8501`  
+**Live Application URL:** Not verified; do not use an unencrypted HTTP endpoint.
 **Document Purpose:** Complete technical reference, architectural defense, and Q&A handbook for technical evaluators, hackathon judges, and architecture reviews.
 
 ---
@@ -52,7 +52,7 @@ Hisaabset is a **cloud-native, evidence-first decision-support platform** that:
 ```
                        [ User / Browser ]
                                │
-                        Port 8501 (HTTP)
+                     HTTPS via CloudFront/ALB
                                │
                                ▼
         ┌────────────────────────────────────────────────────────┐
@@ -116,8 +116,7 @@ Hisaabset is a **cloud-native, evidence-first decision-support platform** that:
      {
        "Effect": "Allow",
        "Action": ["ses:SendEmail", "ses:SendRawEmail"],
-       "Resource": "*",
-       "Condition": { "StringEquals": { "ses:FromAddress": "unnamedinsect424@gmail.com" } }
+       "Resource": "arn:aws:ses:<region>:<account-id>:identity/<verified-identity>"
      }
      ```
 - **Trust Policy (`ecs-tasks.amazonaws.com`):** Configured so that only the ECS task service principal can assume this role. Zero credentials exist inside source code or container environment variables.
@@ -252,8 +251,8 @@ Per business operational specifications, Hisaabset is intentionally architected 
 - **Rationale:** Small-to-medium Indian distributor firms do not have multi-tiered finance departments with disjoint roles. The business owner or designated Finance Lead oversees the entire ledger, invoice intake, customer communication, and dispute adjudication. Enforcing a single authorized role eliminates RBAC complexity, session switching errors, and accidental privilege escalation.
 - **Authorized Identity:**
   - **Role:** `Finance Lead`
-  - **Authorized User:** `Zeeshan Ali` (`admin` or `finance` or `sszeeshu@gmail.com`)
-  - **Default Credentials:** `admin` / `[credential-rotated]`
+  - **Authorized User:** deployment-configured Finance Lead aliases
+  - **Password:** deployment-managed PBKDF2 hash; no default password is stored in source
 
 ### Page-to-Page Navigation Flow
 
@@ -303,11 +302,10 @@ Per business operational specifications, Hisaabset is intentionally architected 
 
 ## 8. Quick Presentation Checklist
 
-- [x] **Live Demo URL:** `http://13.126.83.182:8501`
+- [ ] **Live Demo URL:** Not verified; do not publish an HTTP origin URL
 - [x] **GitHub Repository:** `https://github.com/MdZeeshanAli01/LedgerLoop`
 - [x] **Test Suite:** 83 tests (82 passed, 1 skipped cleanly)
-- [x] **Container Health Endpoint:** `http://13.126.83.182:8501/_stcore/health` (Returns `200 ok`)
+- [ ] **Container Health Endpoint:** Verify through the HTTPS load balancer/CloudFront URL
 - [x] **AWS Region:** `ap-south-1` (Mumbai)
-- [x] **ECS Cluster / Service:** `hisaabset-cluster` / `hisaabset-service-iv1acua6`
+- [ ] **ECS Cluster / Service:** Verify in the authorized AWS account before publishing
 - [x] **Role Architecture:** Single Authorized Role (**Finance Lead** / `admin`)
-

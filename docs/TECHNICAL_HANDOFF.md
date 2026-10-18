@@ -6,8 +6,8 @@
 **Application entry point:** `app/app.py`  
 **Compatibility entry point:** `app.py` for existing Streamlit/VS Code launch configurations
 **Current runtime:** Streamlit on `http://localhost:8501`  
-**Live Cloud Deployment:** AWS ECS Fargate on `http://13.126.83.182:8501`  
-**Authentication:** Single-role Finance Lead (`admin` / `[credential-rotated]`)  
+**Live Cloud Deployment:** Not verified; no live URL is claimed.
+**Authentication:** Local Finance Lead gate backed by a deployment-managed password hash; production Cognito/OIDC is required.
 **Document purpose:** This is the canonical technical and product-context handoff for developers, reviewers, and future AI models.
 
 > Give this document to a new developer or AI together with the repository. It explains the current architecture, data model, business rules, safety boundaries, user workflows, known assumptions, and validation status. It should be updated whenever a core rule or data contract changes.
