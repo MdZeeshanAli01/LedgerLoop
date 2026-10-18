@@ -253,3 +253,4 @@ When an indebted retailer needs new stock, Hisaabset structures a structured rec
 - [x] **Container Health Endpoint:** `http://13.233.244.181:8501/_stcore/health` (Returns `200 ok`)
 - [x] **AWS Region:** `ap-south-1` (Mumbai)
 - [x] **ECS Cluster / Service:** `hisaabset-cluster` / `hisaabset-service`
+

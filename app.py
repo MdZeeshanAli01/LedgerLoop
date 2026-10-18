@@ -12,6 +12,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
+from src.auth import User, FINANCE_LEAD, authenticate_user
 from src.disputes import VALID_CAUSES, VALID_RESOLUTIONS, explain, validate_dispute
 from src.drafts import drafts_for_customers
 from src.communications import send_via_ses, valid_email
@@ -284,6 +285,8 @@ def _initialize_state():
     st.session_state.setdefault(
         "customer_contacts", {"Aarav General Store": "unnamedinsect424@gmail.com"}
     )
+    st.session_state.setdefault("authenticated", False)
+    st.session_state.setdefault("current_user", None)
 
 
 def _render_negotiated_recovery(
@@ -816,11 +819,80 @@ def _render_drafts(evaluations):
             else:
                 st.error(result.message)
 
+def _render_login_page() -> None:
+    left, center, right = st.columns([1, 2, 1])
+    with center:
+        st.markdown(
+            """
+            <div style="text-align:center; padding: 25px 0 10px;">
+                <div style="display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:18px; background:linear-gradient(135deg,#087f72,#39b79b); color:#fff; font-size:30px; font-weight:800; box-shadow:0 8px 20px rgba(8,127,114,.25);">₹</div>
+                <div style="font-size:32px; font-weight:800; color:#173b3b; margin-top:8px;">Hisaabset</div>
+                <div style="color:#087f72; font-size:13px; font-weight:800; letter-spacing:0.04em;">HAR PAYMENT KA CLEAR HISAB</div>
+                <div style="color:#557070; font-size:14px; margin-top:6px;">B2B Distributor Receivables & Retailer Credit Management Desk</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        with st.form("login-form", clear_on_submit=False):
+            st.markdown("#### Sign in to your account")
+            username = st.text_input("Username or Email", placeholder="e.g. admin or finance@hisaabset.com")
+            password = st.text_input("Password", type="password", placeholder="Enter your password")
+            submit = st.form_submit_button("Sign in to Hisaabset")
+
+            if submit:
+                if not username.strip() or not password:
+                    st.error("Please enter both username and password.")
+                else:
+                    user = authenticate_user(username, password)
+                    if user:
+                        st.session_state.authenticated = True
+                        st.session_state.current_user = user
+                        st.success(f"Welcome back, {user.display_name}! Loading your workspace...")
+                        st.rerun()
+                    else:
+                        st.error("Invalid username or password. Please check your credentials.")
+
+        st.markdown(
+            """
+            <div style="text-align:center; color:#557070; font-size:12px; font-weight:800; margin: 18px 0 10px; letter-spacing:0.04em;">
+                ── OR QUICK LOGIN ──
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        if st.button("⚡ Quick Login as Finance Lead (Zeeshan Ali)", use_container_width=True, key="demo-admin"):
+            st.session_state.authenticated = True
+            st.session_state.current_user = FINANCE_LEAD
+            st.rerun()
+
+        st.markdown(
+            """
+            <div style="background:#f4f8f7; border:1px solid #c9dcda; border-radius:14px; padding:12px 16px; margin-top:16px; font-size:12px; color:#386563; line-height:1.6;">
+                <b>Finance Lead Login Credentials:</b><br>
+                • <b>Username:</b> <code>admin</code> (or <code>finance</code> / <code>sszeeshu@gmail.com</code>)<br>
+                • <b>Password:</b> <code>hisaabset123</code>
+            </div>
+            <div style="text-align:center; color:#789090; font-size:11px; margin-top:14px;">
+                Protected by Enterprise Access Gatekeeper · TLS Encrypted Session
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
 def main():
     st.set_page_config(page_title="Hisaabset | Har payment ka clear hisab", layout="wide")
     _initialize_state()
     _inject_styles()
+
+    if not st.session_state.get("authenticated", False):
+        _render_login_page()
+        return
+
     result = st.session_state.load_result
+    current_user: User = st.session_state.get("current_user", FINANCE_LEAD)
 
     with st.sidebar:
         st.markdown(
@@ -829,6 +901,21 @@ def main():
             '<div class="ll-brand-tagline">Har payment ka clear hisab</div>',
             unsafe_allow_html=True,
         )
+        st.markdown(
+            f"""
+            <div style="background:#eef7f5; border:1px solid #c8e4de; border-radius:14px; padding:10px 12px; margin-bottom:10px;">
+                <div style="font-size:10px; font-weight:800; color:#087f72; letter-spacing:0.05em; text-transform:uppercase;">Signed In As</div>
+                <div style="font-size:14px; font-weight:800; color:#173b3b;">{current_user.display_name}</div>
+                <div style="font-size:11px; font-weight:700; color:#557070;">{current_user.role} · {current_user.email}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button("Sign out", key="logout-btn", use_container_width=True):
+            st.session_state.authenticated = False
+            st.session_state.current_user = None
+            st.rerun()
+
         st.markdown(
             '<div class="ll-side-hint">Use the menu above to move around.<br>'
             'Import files and set filters here.</div>',
