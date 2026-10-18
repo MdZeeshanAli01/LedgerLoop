@@ -21,7 +21,9 @@ the project.
 
 ## Run the application
 
-Use Python 3.10 or later:
+Use Python 3.10 or later. The root `app.py` is a compatibility entrypoint
+for existing Streamlit and VS Code launch configurations; the implementation
+lives in `app/app.py`.
 
 ```powershell
 python -m pip install -r requirements.txt

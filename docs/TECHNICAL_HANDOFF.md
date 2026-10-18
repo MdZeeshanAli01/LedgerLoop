@@ -3,7 +3,8 @@
 **Project:** Hisaabset  
 **Repository:** `MdZeeshanAli01/LedgerLoop`  
 **Product tagline:** *Har payment ka clear hisab*  
-**Application entry point:** `app/app.py`
+**Application entry point:** `app/app.py`  
+**Compatibility entry point:** `app.py` for existing Streamlit/VS Code launch configurations
 **Current runtime:** Streamlit on `http://localhost:8501`  
 **Live Cloud Deployment:** AWS ECS Fargate on `http://13.126.83.182:8501`  
 **Authentication:** Single-role Finance Lead (`admin` / `[credential-rotated]`)  
