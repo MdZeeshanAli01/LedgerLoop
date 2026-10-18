@@ -29,7 +29,9 @@ aws ecr get-login-password --region $Region |
     docker login --username AWS --password-stdin $registry
 
 Write-Host "Building $image..."
-docker build --tag $image (Join-Path $PSScriptRoot "..\..")
+$repositoryRoot = Join-Path $PSScriptRoot "..\.."
+$dockerfile = Join-Path $repositoryRoot "deploy\docker\streamlit.Dockerfile"
+docker build --file $dockerfile --tag $image $repositoryRoot
 
 Write-Host "Pushing $image..."
 docker push $image

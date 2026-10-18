@@ -3,7 +3,8 @@
 **Project:** Hisaabset  
 **Repository:** `MdZeeshanAli01/LedgerLoop`  
 **Product tagline:** *Har payment ka clear hisab*  
-**Application entry point:** `app.py`  
+**Application entry point:** `app/app.py`  
+**Compatibility entry point:** `app.py` for existing Streamlit/VS Code launch configurations
 **Current runtime:** Streamlit on `http://localhost:8501`  
 **Live Cloud Deployment:** AWS ECS Fargate on `http://13.126.83.182:8501`  
 **Authentication:** Single-role Finance Lead (`admin` / `[credential-rotated]`)  
@@ -109,7 +110,8 @@ Changing one must not accidentally rewrite another.
 
 ```text
 LedgerLoop/
-├── app.py                         Streamlit UI and session orchestration
+├── app/
+│   └── app.py                     Streamlit UI and session orchestration
 ├── src/
 │   ├── loader.py                  Input contracts, parsing, normalization, validation
 │   ├── rules.py                   Invoice balances, ageing, promises, priority
@@ -127,10 +129,10 @@ LedgerLoop/
 ├── docs/
 │   ├── TECHNICAL_HANDOFF.md       This canonical technical context
 │   ├── MBA_GUIDE.md               Business-oriented explanation
-│   └── assumptions.md             Observed facts versus assumptions
-├── .streamlit/config.toml         Light Hisaabset theme
-├── PROJECT_REQUIREMENTS.md        Original requirements and phased plan
-├── CONTEXT.md                     Earlier engineering scope/context
+│   ├── CONTEXT.md                 Earlier engineering scope/context
+│   ├── PROJECT_REQUIREMENTS.md    Original requirements and phased plan
+│   ├── assumptions.md             Observed facts versus assumptions
+│   └── reference/                 Supplied product and case documents
 ├── README.md                      Setup and feature overview
 └── requirements.txt               Runtime/test dependencies
 ```
@@ -138,7 +140,7 @@ LedgerLoop/
 ### 4.1 Dependency direction
 
 ```text
-app.py
+app/app.py
  ├── loader.py
  ├── rules.py ── disputes.py
  ├── drafts.py
@@ -147,7 +149,7 @@ app.py
  └── export.py ── rules.py, negotiated.py
 ```
 
-The domain modules are mostly pure functions and dataclasses. Streamlit-specific state and rendering belong in `app.py`.
+The domain modules are mostly pure functions and dataclasses. Streamlit-specific state and rendering belong in `app/app.py`.
 
 ---
 
@@ -239,7 +241,7 @@ Invalid input is reported explicitly through validation errors; it is not conver
 
 ### 6.1 Startup
 
-`app.py` calls `_initialize_state()`:
+`app/app.py` calls `_initialize_state()`:
 
 1. Loads the default fixture.
 2. Stores `LoadResult` in `st.session_state.load_result`.
@@ -928,7 +930,7 @@ Run:
 
 ```powershell
 python -m pytest -q
-python -m compileall -q app.py src tests
+python -m compileall -q app src tests
 git diff --check
 ```
 
@@ -985,7 +987,7 @@ When changing a core calculation, add a failing regression test first, then upda
 
 1. Add it to `Invoice`.
 2. Add parsing and validation in `loader.py`.
-3. Add manual UI input in `app.py`.
+3. Add manual UI input in `app/app.py`.
 4. Add PDF extraction only if the field is reliably present.
 5. Add the field to exports.
 6. Add focused loader/UI/export tests.
@@ -1077,7 +1079,7 @@ To run any JSON scenario:
 1. Start the app:
 
    ```powershell
-   python -m streamlit run app.py --server.port 8501
+   python -m streamlit run app/app.py --server.port 8501
    ```
 
 2. Open `http://localhost:8501`.
@@ -1309,7 +1311,7 @@ To test optional cases through the invoice-detail editor:
 ### 22.7 PDF-entry workflow
 
 Use **sidebar → Import data → upload PDF** with a computer-generated invoice
-such as [`invoice_51109301.pdf`](../invoice_51109301.pdf).
+such as [`invoice_51109301.pdf`](../data/source_documents/invoice_51109301.pdf).
 
 1. Upload one PDF.
 2. Confirm extracted invoice number, customer, amount, and invoice date.
@@ -1428,7 +1430,7 @@ When a future AI receives a bug report, it should:
 
    ```powershell
    python -m pytest -q
-   python -m compileall -q app.py src tests
+   python -m compileall -q app src tests
    git diff --check
    ```
 
@@ -1441,7 +1443,7 @@ When a future AI receives a bug report, it should:
 
 The current communication channel is Amazon SES email. The implementation is
 in [`src/communications.py`](../src/communications.py), and the UI integration
-is in `app.py` under `_render_drafts()`.
+is in `app/app.py` under `_render_drafts()`.
 
 ### 23.1 Current behavior
 
@@ -1547,7 +1549,7 @@ records.
 The repository includes a secret-free deployment bundle:
 
 ```text
-Dockerfile
+deploy/docker/streamlit.Dockerfile
 .dockerignore
 .env.example
 deploy/aws/
@@ -1599,21 +1601,47 @@ credentials are not needed in application environment variables.
 
 ---
 
-## 25. Recommended future phases
+## 25. Production foundation and remaining phases
 
-These are not currently implemented and should be treated as future work:
+The repository now includes a separate `backend/` production foundation. It is
+deliberately kept outside the Streamlit calculation modules so the existing
+domain rules remain the source of truth. The foundation currently provides:
 
-1. Database-backed persistence and multi-user access.
-2. Role-based finance-manager approval.
-3. Immutable audit-event history for every edit and decision.
-4. OCR for scanned invoices.
-5. Stronger PDF template configuration and extraction confidence.
-6. Receipt allocation workflow for unapplied payments.
-7. Product-level BEP and margin capture.
-8. Configurable risk weights and distributor policy versions.
-9. Payment gateway or bank-statement reconciliation.
-10. External communication integrations with explicit user confirmation.
-11. Automated UI testing for accessibility and visual regressions.
-12. Timezone-aware approval timestamps and formal audit clock policy.
+1. PostgreSQL-compatible SQLAlchemy models for invoices, receipts, and audit
+   events.
+2. Organization-scoped invoice reads and writes.
+3. Cognito/OIDC JWT validation hooks using issuer, audience, and JWKS settings.
+4. Role checks for `finance_admin`, `finance_manager`, `collector`, and
+   `auditor`.
+5. Audit recording for API invoice creation.
+6. A health endpoint and non-root backend container.
+7. An explicit seed command for the current demo fixture.
+
+This foundation is not a production launch claim by itself. Before go-live,
+configure Cognito, use managed PostgreSQL rather than the development SQLite
+fallback, add versioned migrations, deploy behind TLS and an ALB, configure
+backups/restore testing, centralize logs and metrics, and complete an
+independent security and access-control review.
+
+Recommended remaining phases:
+
+1. Integrate Streamlit with the authenticated API and remove direct
+   session-state persistence for production records.
+2. Add durable receipt uploads, source-file storage, validation-result
+   persistence, and controlled export storage in S3.
+3. Add versioned invoice edits, optimistic concurrency, and complete append-only
+   audit coverage for disputes, promises, drafts, credit decisions, negotiated
+   agreements, and email approvals.
+4. Add role-based finance-manager approval and duplicate-send protection for
+   SES.
+5. Add Alembic migrations, secret management, TLS/ALB, backups, monitoring,
+   alerting, retention/deletion workflows, and disaster-recovery exercises.
+6. Add OCR for scanned invoices, receipt allocation, policy-versioned risk
+   weights, and formal timezone-aware approval timestamps.
+7. Add stronger PDF template configuration and extraction confidence.
+8. Add product-level BEP and margin capture.
+9. Add payment gateway or bank-statement reconciliation only behind explicit
+   approval workflows.
+10. Add automated UI testing for accessibility and visual regressions.
 
 Any future automation must retain the current safety rule: the application may recommend, explain, and prepare; a responsible finance user must approve consequential actions.

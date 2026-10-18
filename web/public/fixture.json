@@ -1,0 +1,17 @@
+{
+  "case_id": "C28",
+  "synthetic": true,
+  "data_version": "v3.2",
+  "currency": "INR unless explicitly stated",
+  "records": {
+    "as_of": "2026-10-16",
+    "invoices": [
+      { "id": "INV1", "amount_inr": 10000, "received_inr": 4000, "due": "2026-10-01", "disputed": false, "customer": "C1" },
+      { "id": "INV2", "amount_inr": 10000, "received_inr": 10000, "due": "2026-10-01", "disputed": false, "customer": "C2" },
+      { "id": "INV3", "amount_inr": 10000, "received_inr": 0, "due": "2026-10-01", "disputed": true, "customer": "C3" },
+      { "id": "INV4", "amount_inr": 10000, "received_inr": 0, "due": "2026-10-01", "disputed": false, "customer": "C4" },
+      { "id": "INV5", "amount_inr": 10000, "received_inr": 0, "due": "2026-10-01", "disputed": false, "customer": "C5" },
+      { "id": "INV6", "amount_inr": 10000, "received_inr": 0, "due": "2026-10-01", "disputed": false, "customer": "C6" }
+    ]
+  }
+}

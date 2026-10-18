@@ -53,4 +53,4 @@ made date, promised date, and promised amount.
 - `src/disputes.py`: dispute split, validation, and explanations.
 - `src/drafts.py`: reviewable template drafts.
 - `src/export.py`: JSON, CSV, starting snapshot, and evidence log.
-- `app.py`: Streamlit rendering and session-state workflow only.
+- `app/app.py`: Streamlit rendering and session-state workflow only.

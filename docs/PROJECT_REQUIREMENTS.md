@@ -29,8 +29,11 @@ guarantee, or production-readiness claim.
 
 ```text
 LedgerLoop/
-  CONTEXT.md
-  app.py
+  app/
+    app.py
+  docs/
+    CONTEXT.md
+    PROJECT_REQUIREMENTS.md
   src/
     __init__.py
     loader.py
@@ -48,8 +51,6 @@ LedgerLoop/
     fixture.json
     extra_synthetic.json
   output/
-  docs/
-    assumptions.md
   requirements.txt
   README.md
 ```

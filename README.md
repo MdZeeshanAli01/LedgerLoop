@@ -5,7 +5,7 @@ Fynd × NMIMS Hyderabad engineering case.
 
 ## Project requirements
 
-See [`PROJECT_REQUIREMENTS.md`](./PROJECT_REQUIREMENTS.md) for the consolidated
+See [`docs/PROJECT_REQUIREMENTS.md`](./docs/PROJECT_REQUIREMENTS.md) for the consolidated
 requirements, acceptance criteria, and phased development checklist derived from
 the supplied C28 documents.
 
@@ -21,11 +21,13 @@ the project.
 
 ## Run the application
 
-Use Python 3.10 or later:
+Use Python 3.10 or later. The root `app.py` is a compatibility entrypoint
+for existing Streamlit and VS Code launch configurations; the implementation
+lives in `app/app.py`.
 
 ```powershell
 python -m pip install -r requirements.txt
-python -m streamlit run app.py
+python -m streamlit run app/app.py
 ```
 
 The default input is [`data/fixture.json`](./data/fixture.json). The sidebar also
@@ -128,7 +130,7 @@ only when ready:
 $env:HISAABSET_EMAIL_SENDER = "unnamedinsect424@gmail.com"
 $env:AWS_REGION = "ap-south-1"
 $env:HISAABSET_EMAIL_TEST_MODE = "false"
-python -m streamlit run app.py --server.port 8501
+python -m streamlit run app/app.py --server.port 8501
 ```
 
 The sender must be verified in Amazon SES. In SES sandbox mode, the recipient
@@ -138,7 +140,7 @@ approval validates the message but no email is delivered.
 
 ## Evidence and limitations
 
-- [`CONTEXT.md`](./CONTEXT.md) records the engineering scope and business rules.
+- [`docs/CONTEXT.md`](./docs/CONTEXT.md) records the engineering scope and business rules.
 - [`docs/assumptions.md`](./docs/assumptions.md) separates observed fixture facts
   from design assumptions and known gaps.
 - [`data/extra_synthetic.json`](./data/extra_synthetic.json) demonstrates partial
@@ -150,3 +152,29 @@ approval validates the message but no email is delivered.
 - MBA pricing, growth, customer research, and pitch work are outside the
   engineering scope. An MBA-entry snapshot should be added only when the MBA
   team actually joins.
+
+## Production foundation
+
+The original Streamlit workflow remains available for the seeded demo. A
+separate production API foundation now lives in [`backend/`](./backend/):
+
+- PostgreSQL-compatible durable invoice, receipt, and audit models.
+- Organization-scoped queries and unique invoice/receipt constraints.
+- Cognito/OIDC JWT validation hooks.
+- Roles for `finance_admin`, `finance_manager`, `collector`, and `auditor`.
+- Append-only audit-event recording for mutating API actions.
+- A health endpoint and non-root backend container.
+- Explicit fixture seeding for the initial demo organization.
+
+Run the API locally with:
+
+```powershell
+python -m uvicorn backend.main:app --reload --port 8000
+python -m backend.seed
+```
+
+The API is intentionally not treated as complete production authorization by
+default. Configure `LEDGERLOOP_OIDC_ISSUER`, `LEDGERLOOP_OIDC_AUDIENCE`, and
+`LEDGERLOOP_OIDC_JWKS_URL` before enabling authenticated access. Production
+deployment still requires managed PostgreSQL, secret management, migrations,
+TLS/ALB, backups, monitoring, and a formal Cognito user-pool/group policy.
