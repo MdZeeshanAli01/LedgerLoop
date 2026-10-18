@@ -515,6 +515,12 @@ def _initialize_state():
     st.session_state.setdefault("current_user", None)
 
 
+def _safe_as_of_date(value: date | None) -> date:
+    if value is None or value < date(1900, 1, 1):
+        return date.today()
+    return value
+
+
 def _render_negotiated_recovery(
     customer: str,
     items,
@@ -1118,6 +1124,10 @@ def main():
         _render_login_page()
         return
     result = st.session_state.load_result
+    safe_as_of = _safe_as_of_date(st.session_state.get("as_of_date"))
+    if result.as_of_date < date(1900, 1, 1):
+        result.as_of_date = safe_as_of
+    st.session_state.as_of_date = safe_as_of
     current_user: User = st.session_state.get("current_user", FINANCE_LEAD)
 
     with st.sidebar:
@@ -1187,11 +1197,13 @@ def main():
                 upload, manual_due_date, manual_received_amount
             )
             st.rerun()
-        stored_as_of = st.session_state.get("as_of_date", date.today())
-        if stored_as_of < date(1900, 1, 1):
-            stored_as_of = date.today()
-            st.session_state.as_of_date = stored_as_of
-        as_of = st.date_input("As-of date", value=stored_as_of)
+        as_of = st.date_input(
+            "As-of date",
+            value=safe_as_of,
+            min_value=date(1900, 1, 1),
+            max_value=date(2100, 12, 31),
+            key="as_of_date_picker",
+        )
         st.session_state.as_of_date = as_of
         customers = sorted({invoice.customer for invoice in result.invoices})
         customer_filter = st.multiselect("Customer filter", customers)
