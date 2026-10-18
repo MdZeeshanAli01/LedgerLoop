@@ -38,7 +38,7 @@ from src.negotiated import (
 from src.retailer import credit_recommendation, retailer_history, retailer_risk
 from src.rules import evaluate_all, ranked_collectable, unapplied_receipts
 
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FIXTURE = ROOT / "data" / "fixture.json"
 OUTPUT_DIR = ROOT / "output"
 
