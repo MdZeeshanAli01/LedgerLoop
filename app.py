@@ -287,6 +287,57 @@ def _inject_styles() -> None:
         .stMarkdown h2, .stMarkdown h3 { letter-spacing:-.025em; }
         .stCaption { color:#75908e !important; }
         .stAlert { border-radius:13px !important; box-shadow:0 5px 15px rgba(23,59,59,.045); }
+        /* LedgerLoop command-center redesign */
+        .ll-command-header { position:relative; display:flex; align-items:flex-end; justify-content:space-between;
+          gap:28px; min-height:170px; margin:0 0 25px; padding:28px 30px; overflow:hidden;
+          border:1px solid rgba(145,210,199,.35); border-radius:25px;
+          color:#effffb; background:linear-gradient(120deg,#071f30 0%,#0b3b49 52%,#087f72 100%);
+          box-shadow:0 18px 42px rgba(8,63,76,.17); }
+        .ll-command-header:before { content:""; position:absolute; inset:-90px -40px auto auto; width:300px; height:300px;
+          border:1px solid rgba(151,255,226,.22); border-radius:50%;
+          box-shadow:0 0 0 23px rgba(151,255,226,.035),0 0 0 47px rgba(151,255,226,.025);
+          animation:ll-command-spin 22s linear infinite; }
+        .ll-command-header:after { content:""; position:absolute; right:28px; bottom:24px; width:190px; height:90px;
+          background:radial-gradient(circle at 18% 35%,#baffef 0 1px,transparent 2px),
+          radial-gradient(circle at 42% 68%,#94dfd0 0 1px,transparent 2px),
+          radial-gradient(circle at 68% 25%,#dbfff7 0 1px,transparent 2px),
+          radial-gradient(circle at 88% 78%,#8ed9c9 0 1px,transparent 2px); opacity:.7; }
+        @keyframes ll-command-spin { to { transform:rotate(360deg); } }
+        .ll-command-copy { position:relative; z-index:1; max-width:620px; }
+        .ll-command-kicker { margin:0 0 10px; color:#75d9c1; font-size:10px; font-weight:800; letter-spacing:.18em; }
+        .ll-command-title { margin:0; color:#fff; font:800 clamp(24px,3vw,38px)/1.05 'Plus Jakarta Sans',sans-serif; letter-spacing:-.055em; }
+        .ll-command-subtitle { margin:10px 0 0; color:#b8d9d7; font-size:13px; line-height:1.55; }
+        .ll-command-status { position:relative; z-index:1; display:flex; flex-direction:column; gap:9px; min-width:210px;
+          padding:15px 16px; border:1px solid rgba(188,255,239,.18); border-radius:16px;
+          background:rgba(255,255,255,.08); backdrop-filter:blur(12px); }
+        .ll-status-line { display:flex; align-items:center; gap:8px; color:#d9fff6; font-size:11px; font-weight:700; }
+        .ll-status-line i { width:8px; height:8px; border-radius:50%; background:#54e0b8; box-shadow:0 0 0 5px rgba(84,224,184,.14); }
+        .ll-status-meta { color:#9bc5c2; font-size:10px; }
+        .ll-section-bar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:6px 0 18px; }
+        .ll-section-bar .ll-eyebrow { margin:0; }
+        .ll-section-bar .ll-rule { flex:1; height:1px; background:linear-gradient(90deg,#c3ded9,transparent); }
+        .ll-source-chip { display:inline-flex; align-items:center; gap:6px; padding:7px 10px; border:1px solid #cbe2de;
+          border-radius:999px; color:#4d7773; background:rgba(255,255,255,.72); font-size:10px; font-weight:700; }
+        .ll-source-chip i { width:6px; height:6px; border-radius:50%; background:#22a789; }
+        .ll-command-header + .ll-title { margin-top:4px; }
+        .stRadio [role="radiogroup"] { backdrop-filter:blur(12px); }
+        [data-testid="stMetric"] { background:linear-gradient(145deg,rgba(255,255,255,.96),rgba(246,251,249,.9)); }
+        [data-testid="stMetric"]:first-child { border-top-color:#173953; }
+        [data-testid="stMetric"]:nth-child(2) { border-top-color:#1ca587; }
+        [data-testid="stMetric"]:nth-child(3) { border-top-color:#e0a62d; }
+        [data-testid="stMetric"]:nth-child(4) { border-top-color:#6958a8; }
+        [data-testid="stSidebar"] { background:linear-gradient(180deg,#f8fcfb 0%,#eff8f5 100%) !important; }
+        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap:.65rem; }
+        [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 { color:#173b3b !important; letter-spacing:-.03em; }
+        .ll-footer-note { display:flex; align-items:center; justify-content:center; gap:8px; margin:28px 0 0;
+          padding:13px 16px; border-top:1px solid #d6e8e3; color:#698783; font-size:10px; text-align:center; }
+        .ll-footer-note b { color:#2d665d; }
+        @media (max-width:800px) {
+          .ll-command-header { display:block; min-height:205px; padding:22px; }
+          .ll-command-status { min-width:0; width:max-content; max-width:100%; margin-top:18px; }
+          .ll-command-header:after { right:18px; top:30px; opacity:.5; }
+          .ll-footer-note { display:block; line-height:1.6; }
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -303,6 +354,31 @@ def _render_session_loader() -> None:
         '<div class="ll-loader-number">000</div>'
         '<div class="ll-loader-label">CLEARING YOUR RECEIVABLES VIEW</div>'
         '<div class="ll-loader-bar"></div></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _render_command_header(navigation: str, result: LoadResult) -> None:
+    """Render the premium product shell while keeping Streamlit controls native."""
+    page = {
+        "＋ Add new bill": ("Build a clearer receivables picture", "Add a bill, import a source, and let the workflow surface the next safe action."),
+        "▤ Your bills": ("Your receivables, in focus", "A calm, ranked view of what is collectible, protected, promised, or complete."),
+        "♟ Customers": ("Know every account before you chase", "Evidence first: payment behavior, exposure, terms, and negotiated recovery in one place."),
+    }[navigation]
+    source_name = Path(st.session_state.get("source_name", "fixture")).name
+    issue_text = f"{len(result.errors)} validation issue(s)" if result.errors else "Source validated"
+    st.markdown(
+        f'<div class="ll-command-header">'
+        f'<div class="ll-command-copy">'
+        f'<div class="ll-command-kicker">HISAABSET · RECEIVABLES COMMAND CENTER</div>'
+        f'<div class="ll-command-title">{page[0]}</div>'
+        f'<div class="ll-command-subtitle">{page[1]}</div>'
+        f'</div>'
+        f'<div class="ll-command-status">'
+        f'<div class="ll-status-line"><i></i>Decision workspace ready</div>'
+        f'<div class="ll-status-meta">{issue_text} · {len(result.invoices)} invoice(s) loaded</div>'
+        f'<div class="ll-source-chip"><i></i>{source_name}</div>'
+        f'</div></div>',
         unsafe_allow_html=True,
     )
 
@@ -1005,6 +1081,7 @@ def main():
         horizontal=True,
         label_visibility="collapsed",
     )
+    _render_command_header(navigation, result)
 
     if navigation == "＋ Add new bill":
         st.markdown('<div class="ll-eyebrow">WELCOME TO HISAABSET</div>', unsafe_allow_html=True)
@@ -1237,6 +1314,12 @@ def main():
     st.caption(
         "Figures come from synthetic data. No cash recovery or production readiness "
         "is claimed. No message is sent without finance approval."
+    )
+    st.markdown(
+        '<div class="ll-footer-note"><b>Built for clear decisions.</b> '
+        'Every figure is recalculated from the selected as-of date. '
+        'Disputed money stays visible. Nothing is sent automatically.</div>',
+        unsafe_allow_html=True,
     )
 
 
