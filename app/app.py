@@ -948,16 +948,24 @@ def _render_invoice_detail(evaluations):
         credit_amount = invoice.credit_amount
         if resolution == "credit_note":
             credit_amount = _decimal_input("Credit amount", invoice.credit_amount)
-        promise_made = st.date_input(
-            "Promise made date",
-            value=invoice.promise_made_date,
-            min_value=date(2000, 1, 1),
+        has_existing_promise = (
+            invoice.promise_made_date is not None or invoice.promise_date is not None
         )
-        promise_date = st.date_input(
-            "Promise date",
-            value=invoice.promise_date,
-            min_value=date(2000, 1, 1),
-        )
+        has_promise = st.checkbox("Customer promised to pay", value=has_existing_promise)
+        if has_promise:
+            promise_made = st.date_input(
+                "Promise made date",
+                value=invoice.promise_made_date or date.today(),
+                min_value=date(2000, 1, 1),
+            )
+            promise_date = st.date_input(
+                "Promise date",
+                value=invoice.promise_date or date.today(),
+                min_value=date(2000, 1, 1),
+            )
+        else:
+            promise_made = None
+            promise_date = None
         promise_amount = _decimal_input("Promise amount", invoice.promise_amount)
         save = st.form_submit_button("Save review fields")
         if save:
@@ -1172,14 +1180,21 @@ def main():
                 "PDF mode: upload one computer-generated invoice. "
                 "Scanned/image-only PDFs need OCR and will be reported for review."
             )
-            manual_due_date = st.date_input(
-                "Manual due date if PDF has no due date",
-                value=None,
-                min_value=date(2000, 1, 1),
+            has_manual_due_date = st.checkbox(
+                "Provide a manual due date",
                 help=(
-                    "The provided invoice contains an issue date but no due date. "
-                    "Enter the contractual due date only if it is known."
+                    "Enable this only when the contractual due date is known. "
+                    "The application never invents a missing PDF due date."
                 ),
+            )
+            manual_due_date = (
+                st.date_input(
+                    "Manual due date if PDF has no due date",
+                    value=date.today(),
+                    min_value=date(2000, 1, 1),
+                )
+                if has_manual_due_date
+                else None
             )
             manual_received_amount = Decimal(str(st.number_input(
                 "Already received amount (₹)",
@@ -1202,7 +1217,7 @@ def main():
             value=safe_as_of,
             min_value=date(1900, 1, 1),
             max_value=date(2100, 12, 31),
-            key="as_of_date_picker",
+            key="as_of_date_picker_v2",
         )
         st.session_state.as_of_date = as_of
         customers = sorted({invoice.customer for invoice in result.invoices})
