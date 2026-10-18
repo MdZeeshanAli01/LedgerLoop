@@ -62,7 +62,7 @@ Hisaabset is a **cloud-native, evidence-first decision-support platform** that:
         │   │ AWS VPC (Default VPC / Public Subnets)         │   │
         │   │                                                │   │
         │   │   Security Group: hisaabset-sg                 │   │
-        │   │   [ Inbound: TCP 8501 from 0.0.0.0/0 ]         │   │
+        │   │   [ Inbound: ALB security group only ]         │   │
         │   │                                                │   │
         │   │   ┌────────────────────────────────────────┐   │   │
         │   │   │ ECS Cluster: hisaabset-cluster         │   │   │
@@ -115,7 +115,7 @@ Hisaabset is a **cloud-native, evidence-first decision-support platform** that:
      ```json
      {
        "Effect": "Allow",
-       "Action": ["ses:SendEmail", "ses:SendRawEmail"],
+       "Action": ["ses:SendEmail"],
        "Resource": "arn:aws:ses:<region>:<account-id>:identity/<verified-identity>"
      }
      ```
@@ -265,7 +265,7 @@ Per business operational specifications, Hisaabset is intentionally architected 
                       ┌────────────────────────────┐
                       │   1. Emerald Login Gate    │
                       │   - Username & Password    │
-                      │   - 1-Click Quick Demo     │
+                      │   - Deployment-managed auth │
                       └──────────────┬─────────────┘
                                      │ Authenticated
                                      ▼
@@ -302,9 +302,9 @@ Per business operational specifications, Hisaabset is intentionally architected 
 
 ## 8. Quick Presentation Checklist
 
-- [ ] **Live Demo URL:** Not verified; do not publish an HTTP origin URL
+- [ ] **Live Demo URL:** Not verified; do not publish an origin URL
 - [x] **GitHub Repository:** `https://github.com/MdZeeshanAli01/LedgerLoop`
-- [x] **Test Suite:** 83 tests (82 passed, 1 skipped cleanly)
+- [x] **Test Suite:** 84 tests passed
 - [ ] **Container Health Endpoint:** Verify through the HTTPS load balancer/CloudFront URL
 - [x] **AWS Region:** `ap-south-1` (Mumbai)
 - [ ] **ECS Cluster / Service:** Verify in the authorized AWS account before publishing
