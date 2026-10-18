@@ -1597,21 +1597,47 @@ credentials are not needed in application environment variables.
 
 ---
 
-## 25. Recommended future phases
+## 25. Production foundation and remaining phases
 
-These are not currently implemented and should be treated as future work:
+The repository now includes a separate `backend/` production foundation. It is
+deliberately kept outside the Streamlit calculation modules so the existing
+domain rules remain the source of truth. The foundation currently provides:
 
-1. Database-backed persistence and multi-user access.
-2. Role-based finance-manager approval.
-3. Immutable audit-event history for every edit and decision.
-4. OCR for scanned invoices.
-5. Stronger PDF template configuration and extraction confidence.
-6. Receipt allocation workflow for unapplied payments.
-7. Product-level BEP and margin capture.
-8. Configurable risk weights and distributor policy versions.
-9. Payment gateway or bank-statement reconciliation.
-10. External communication integrations with explicit user confirmation.
-11. Automated UI testing for accessibility and visual regressions.
-12. Timezone-aware approval timestamps and formal audit clock policy.
+1. PostgreSQL-compatible SQLAlchemy models for invoices, receipts, and audit
+   events.
+2. Organization-scoped invoice reads and writes.
+3. Cognito/OIDC JWT validation hooks using issuer, audience, and JWKS settings.
+4. Role checks for `finance_admin`, `finance_manager`, `collector`, and
+   `auditor`.
+5. Audit recording for API invoice creation.
+6. A health endpoint and non-root backend container.
+7. An explicit seed command for the current demo fixture.
+
+This foundation is not a production launch claim by itself. Before go-live,
+configure Cognito, use managed PostgreSQL rather than the development SQLite
+fallback, add versioned migrations, deploy behind TLS and an ALB, configure
+backups/restore testing, centralize logs and metrics, and complete an
+independent security and access-control review.
+
+Recommended remaining phases:
+
+1. Integrate Streamlit with the authenticated API and remove direct
+   session-state persistence for production records.
+2. Add durable receipt uploads, source-file storage, validation-result
+   persistence, and controlled export storage in S3.
+3. Add versioned invoice edits, optimistic concurrency, and complete append-only
+   audit coverage for disputes, promises, drafts, credit decisions, negotiated
+   agreements, and email approvals.
+4. Add role-based finance-manager approval and duplicate-send protection for
+   SES.
+5. Add Alembic migrations, secret management, TLS/ALB, backups, monitoring,
+   alerting, retention/deletion workflows, and disaster-recovery exercises.
+6. Add OCR for scanned invoices, receipt allocation, policy-versioned risk
+   weights, and formal timezone-aware approval timestamps.
+7. Add stronger PDF template configuration and extraction confidence.
+8. Add product-level BEP and margin capture.
+9. Add payment gateway or bank-statement reconciliation only behind explicit
+   approval workflows.
+10. Add automated UI testing for accessibility and visual regressions.
 
 Any future automation must retain the current safety rule: the application may recommend, explain, and prepare; a responsible finance user must approve consequential actions.

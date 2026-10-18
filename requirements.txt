@@ -4,3 +4,9 @@ pytest
 pypdf
 pdfplumber
 boto3
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg[binary]
+pydantic-settings
+python-jose[cryptography]
