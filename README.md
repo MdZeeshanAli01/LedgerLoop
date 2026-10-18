@@ -19,6 +19,7 @@ engine, collections agent, or production-readiness claim.
 - Keeps unapplied receipts visible without auto-matching them.
 - Separates collectible balances from dispute-review balances.
 - Tracks paid, not-due, collectable, under-review, and promised invoices.
+- Records received payments, closes settled invoices, and generates official payment vouchers.
 - Detects active, kept, and broken payment promises.
 - Ranks collectible invoices using the documented ageing, amount, and
   broken-promise formula.
@@ -275,10 +276,9 @@ aws sts get-caller-identity
 .\deploy\aws\deploy.ps1 -Region ap-south-1 -Tag v1
 ```
 
-AWS deployment is **not currently completed**. The repository does not yet
-automatically create the complete ECS service, ALB, ACM certificates,
-CloudFront distribution, or Route 53 records. Do not claim a CloudFront URL
-until those resources and the application health endpoint have been verified.
+AWS deployment is **live** on AWS ECS on Fargate in `ap-south-1` (Mumbai) with continuous 24/7 self-healing hosting (`desiredCount: 1`, container health checks):
+- **Live Endpoint:** `http://13.235.214.105:8501`
+- **Healthcheck:** `http://13.235.214.105:8501/_stcore/health` (HTTP 200 OK)
 
 Use a dedicated deployment identity or AWS SSO. Never use root credentials,
 never create keys for ECS task roles, and never commit AWS credentials.

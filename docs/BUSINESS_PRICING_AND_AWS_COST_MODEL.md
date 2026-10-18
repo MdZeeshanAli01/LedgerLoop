@@ -1,7 +1,7 @@
 # Hisaabset (LedgerLoop) — Business Pricing, AWS Cost Analysis & Subscription Model
 
 **Project:** Hisaabset (*Har payment ka clear hisab*)  
-**Live Endpoint:** `http://13.206.72.240:8501`  
+**Live Endpoint:** `http://13.235.214.105:8501`  
 **Target Market:** Indian B2B FMCG, Pharma, Hardware, and Electronics Distributors (SMBs)  
 **Document Purpose:** Comprehensive cost analysis (Development, Cloud Deployment, Ongoing Maintenance), Unit Economics, and SaaS Subscription Pricing Strategy designed for MBA business case presentations, pitch decks, and investor defense.
 

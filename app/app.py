@@ -24,6 +24,7 @@ from src.export import (
     write_negotiated_json,
 )
 from src.loader import Invoice, LoadResult, Receipt, load_fixture
+from src.payments import PAYMENT_MODES, generate_payment_voucher, record_payment
 from src.pdf_invoice import extract_invoice_pdf
 from src.negotiated import (
     AgreementStatus,
@@ -1201,6 +1202,73 @@ def _render_invoice_detail(evaluations):
     }])
     st.dataframe(audit, hide_index=True, use_container_width=True)
 
+    if evaluation.state == "Paid":
+        st.success(f"🟢 **Invoice {invoice.invoice_id} is FULLY PAID & CLOSED.** Outstanding balance is ₹0.00.")
+        matching_receipts = [r for r in st.session_state.load_result.receipts if r.invoice_id == invoice.invoice_id]
+        if matching_receipts:
+            st.markdown("##### 🧾 Applied Payment Receipts")
+            st.dataframe(pd.DataFrame([{
+                "Receipt ID": r.receipt_id,
+                "Date": r.receipt_date,
+                "Amount": _money(r.amount),
+            } for r in matching_receipts]), hide_index=True, use_container_width=True)
+            last_receipt = matching_receipts[-1]
+            voucher_text = generate_payment_voucher(
+                invoice=invoice,
+                receipt=last_receipt,
+                remaining_balance=Decimal("0.00"),
+            )
+            with st.expander("📄 View & Download Official Payment Receipt Voucher"):
+                st.code(voucher_text, language="text")
+                st.download_button(
+                    "⬇️ Download Payment Receipt Voucher (.txt)",
+                    data=voucher_text,
+                    file_name=f"Payment_Receipt_{invoice.invoice_id}.txt",
+                    mime="text/plain",
+                    key=f"dl_voucher_{invoice.invoice_id}",
+                )
+    else:
+        with st.expander("💰 Record Payment Received & Settle / Close Invoice", expanded=True):
+            st.markdown(f"**Outstanding balance to settle:** `₹{_money(evaluation.outstanding)}`")
+            with st.form(f"pay-close-{invoice.invoice_id}"):
+                pay_col1, pay_col2 = st.columns(2)
+                with pay_col1:
+                    pay_amount = _decimal_input("Payment amount received (₹) *", evaluation.outstanding)
+                    pay_date = st.date_input("Payment date *", value=date.today(), min_value=date(2000, 1, 1), key=f"pay_date_{invoice.invoice_id}")
+                    pay_mode = st.selectbox("Payment method *", PAYMENT_MODES, key=f"pay_mode_{invoice.invoice_id}")
+                with pay_col2:
+                    pay_ref = st.text_input("Transaction reference / UTR / Cheque number", placeholder="Example: UTR-9876543210", key=f"pay_ref_{invoice.invoice_id}")
+                    pay_note = st.text_input("Payment notes / remarks", placeholder="Example: Full payment received in bank", key=f"pay_note_{invoice.invoice_id}")
+                    resolve_disp = True
+                    if invoice.disputed or (invoice.disputed_amount and invoice.disputed_amount > Decimal("0.00")):
+                        resolve_disp = st.checkbox("Mark dispute as resolved by this payment", value=True, key=f"pay_disp_{invoice.invoice_id}")
+                    settle_rem = False
+                    if pay_amount < evaluation.outstanding:
+                        settle_rem = st.checkbox("Treat as full & final settlement (close remaining balance as discount/credit)", value=False, key=f"pay_settle_{invoice.invoice_id}")
+
+                submit_payment = st.form_submit_button("✅ Confirm Payment & Close Invoice", type="primary")
+                if submit_payment:
+                    if pay_amount <= Decimal("0.00"):
+                        st.error("Payment amount must be greater than zero.")
+                    else:
+                        receipt, updated_inv = record_payment(
+                            invoice=invoice,
+                            receipts=st.session_state.load_result.receipts,
+                            invoices=st.session_state.load_result.invoices,
+                            payment_amount=pay_amount,
+                            payment_date=pay_date,
+                            payment_mode=pay_mode,
+                            reference_id=pay_ref,
+                            note=pay_note,
+                            settle_remaining=settle_rem,
+                            resolve_dispute=resolve_disp,
+                        )
+                        st.session_state.reviewed_drafts = {}
+                        st.session_state.draft_text = {}
+                        st.session_state.negotiated_agreements = {}
+                        st.success(f"🎉 Payment of ₹{pay_amount} recorded! Invoice {invoice.invoice_id} is now CLOSED & PAID.")
+                        st.rerun()
+
     with st.form(f"edit-{invoice.invoice_id}"):
         st.markdown("#### Dispute and promise review")
         due_date = st.date_input(
@@ -1740,8 +1808,8 @@ def main():
         return
 
     tabs = st.tabs([
-        "Priority list", "Under review", "Promised", "Not yet due / Paid",
-        "Unapplied receipts", "Draft plan", "Invoice detail",
+        "Priority list", "Under review", "Promised", "Not yet due", "Paid & Closed",
+        "💰 Close / Settle Invoice", "Unapplied receipts", "Draft plan", "Invoice detail",
     ])
     with tabs[0]:
         st.dataframe(pd.DataFrame([{
@@ -1774,24 +1842,128 @@ def main():
         } for item in promised]), hide_index=True, use_container_width=True)
     with tabs[3]:
         st.subheader("Not yet due")
-        st.dataframe(pd.DataFrame([{
-            "Invoice": item.invoice_id, "Customer": item.customer,
-            "Due date": item.invoice.due_date, "Outstanding": _money(item.outstanding),
-        } for item in not_due]), hide_index=True, use_container_width=True)
-        st.subheader("Paid")
-        st.dataframe(pd.DataFrame([{
-            "Invoice": item.invoice_id, "Customer": item.customer,
-            "Paid amount": _money(item.invoice.amount),
-        } for item in paid]), hide_index=True, use_container_width=True)
+        st.caption("Invoices whose agreed due date has not arrived yet.")
+        if not not_due:
+            st.info("No invoices are currently awaiting their due date.")
+        else:
+            st.dataframe(pd.DataFrame([{
+                "Invoice": item.invoice_id, "Customer": item.customer,
+                "Due date": item.invoice.due_date, "Outstanding": _money(item.outstanding),
+            } for item in not_due]), hide_index=True, use_container_width=True)
     with tabs[4]:
+        st.subheader("🟢 Paid & Closed Invoices")
+        st.caption("Invoices where payment has been received in full (or final settlement reached) and the balance is zero.")
+        if not paid:
+            st.info("No invoices are currently marked as paid.")
+        else:
+            st.dataframe(pd.DataFrame([{
+                "Invoice": item.invoice_id,
+                "Customer": item.customer,
+                "Invoice Amount": _money(item.invoice.amount),
+                "Total Received": _money(item.applied_receipts),
+                "Settlement / Credit": _money(item.credit_applied),
+                "Outstanding": _money(item.outstanding),
+                "State": "🟢 Paid & Closed",
+            } for item in paid]), hide_index=True, use_container_width=True)
+
+            st.markdown("#### 📄 Payment Receipt Vouchers")
+            paid_sel_id = st.selectbox(
+                "Select a paid invoice to inspect or download its payment voucher",
+                [item.invoice_id for item in paid],
+                key="paid_tab_voucher_sel",
+            )
+            paid_eval = next(item for item in paid if item.invoice_id == paid_sel_id)
+            matching_recs = [r for r in result.receipts if r.invoice_id == paid_eval.invoice_id]
+            last_rec = matching_recs[-1] if matching_recs else Receipt(
+                receipt_id=f"REC-{paid_eval.invoice_id}",
+                invoice_id=paid_eval.invoice_id,
+                customer=paid_eval.customer,
+                amount=paid_eval.applied_receipts,
+                receipt_date=as_of,
+            )
+            voucher = generate_payment_voucher(
+                invoice=paid_eval.invoice,
+                receipt=last_rec,
+                remaining_balance=paid_eval.outstanding,
+            )
+            with st.expander("📄 View Payment Receipt Voucher", expanded=True):
+                st.code(voucher, language="text")
+                st.download_button(
+                    f"⬇️ Download Voucher for {paid_eval.invoice_id} (.txt)",
+                    data=voucher,
+                    file_name=f"Payment_Receipt_{paid_eval.invoice_id}.txt",
+                    mime="text/plain",
+                    key=f"dl_paid_tab_{paid_eval.invoice_id}",
+                )
+    with tabs[5]:
+        st.subheader("💰 Record Payment Received & Close Invoice")
+        st.caption("Record incoming payments (UPI, NEFT/RTGS, Cheque, Cash) to settle open balances and close invoices.")
+        open_evals = [item for item in evaluations if item.outstanding > Decimal("0.00")]
+        if not open_evals:
+            st.success("🎉 All invoices are currently paid and closed! There are no outstanding balances.")
+        else:
+            options_map = {
+                f"{item.invoice_id} — {item.customer} (Outstanding: ₹{_money(item.outstanding)})": item
+                for item in open_evals
+            }
+            sel_label = st.selectbox("Select open invoice to close *", list(options_map.keys()), key="close_inv_tab_sel")
+            sel_item = options_map[sel_label]
+            sel_invoice = sel_item.invoice
+
+            st.info(
+                f"**Customer:** {sel_invoice.customer} · **Original Amount:** ₹{_money(sel_invoice.amount)} · "
+                f"**Previously Received:** ₹{_money(sel_item.applied_receipts)} · "
+                f"**Disputed / Review:** ₹{_money(sel_item.review_amount)} · "
+                f"**Outstanding To Settle:** ₹{_money(sel_item.outstanding)}"
+            )
+
+            with st.form("tab-close-invoice-form"):
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    tab_pay_amt = _decimal_input("Payment amount received (₹) *", sel_item.outstanding)
+                    tab_pay_date = st.date_input("Date payment received *", value=date.today(), min_value=date(2000, 1, 1), key="tab_pay_date")
+                    tab_pay_mode = st.selectbox("Payment method *", PAYMENT_MODES, key="tab_pay_mode")
+                with col_b:
+                    tab_pay_ref = st.text_input("Transaction / UTR / Cheque reference", placeholder="Example: UTR-9876543210", key="tab_pay_ref")
+                    tab_pay_note = st.text_input("Closing / Settlement notes", placeholder="Example: Full payment received in bank", key="tab_pay_note")
+                    tab_resolve_disp = True
+                    if sel_invoice.disputed or (sel_invoice.disputed_amount and sel_invoice.disputed_amount > Decimal("0.00")):
+                        tab_resolve_disp = st.checkbox("Mark dispute as resolved by this payment", value=True, key="tab_pay_disp")
+                    tab_settle_rem = False
+                    if tab_pay_amt < sel_item.outstanding:
+                        tab_settle_rem = st.checkbox("Treat as full & final settlement (close remaining balance as discount/credit)", value=True, key="tab_pay_settle")
+
+                tab_confirm = st.form_submit_button("✅ Confirm Payment & Close Invoice", type="primary")
+                if tab_confirm:
+                    if tab_pay_amt <= Decimal("0.00"):
+                        st.error("Payment amount must be greater than zero.")
+                    else:
+                        rec, updated_inv = record_payment(
+                            invoice=sel_invoice,
+                            receipts=st.session_state.load_result.receipts,
+                            invoices=st.session_state.load_result.invoices,
+                            payment_amount=tab_pay_amt,
+                            payment_date=tab_pay_date,
+                            payment_mode=tab_pay_mode,
+                            reference_id=tab_pay_ref,
+                            note=tab_pay_note,
+                            settle_remaining=tab_settle_rem,
+                            resolve_dispute=tab_resolve_disp,
+                        )
+                        st.session_state.reviewed_drafts = {}
+                        st.session_state.draft_text = {}
+                        st.session_state.negotiated_agreements = {}
+                        st.success(f"🎉 Payment of ₹{tab_pay_amt} recorded! Invoice **{sel_invoice.invoice_id}** is now **CLOSED & PAID**.")
+                        st.rerun()
+    with tabs[6]:
         unapplied = unapplied_receipts(result.receipts, as_of)
         st.dataframe(pd.DataFrame([{
             "Receipt": receipt.receipt_id, "Customer": receipt.customer,
             "Amount": _money(receipt.amount), "Date": receipt.receipt_date,
         } for receipt in unapplied]), hide_index=True, use_container_width=True)
-    with tabs[5]:
+    with tabs[7]:
         _render_drafts(evaluations)
-    with tabs[6]:
+    with tabs[8]:
         _render_invoice_detail(evaluations)
 
     st.divider()
