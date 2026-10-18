@@ -236,3 +236,4 @@ To capture maximum value across varied business sizes, we implement a **Three-Ti
 | **Slide 5** | **Subscription Pricing**| Starter: **₹999/mo** · Pro: **₹2,499/mo** · Enterprise: **₹6,999/mo** (>90% Gross Margin). |
 | **Slide 6** | **Unit Economics** | CAC: ₹2,500 · LTV: ₹57,000 · **LTV:CAC = 22.8x** · Payback period = 1.05 months. |
 | **Slide 7** | **Customer ROI** | 1 bad debt prevented = ₹30,000 saved = **12x annual subscription ROI**. |
+

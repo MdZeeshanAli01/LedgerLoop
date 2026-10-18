@@ -23,7 +23,7 @@ from src.export import (
     write_starting_state,
     write_negotiated_json,
 )
-from src.loader import Invoice, LoadResult, load_fixture
+from src.loader import Invoice, LoadResult, Receipt, load_fixture
 from src.pdf_invoice import extract_invoice_pdf
 from src.negotiated import (
     AgreementStatus,
@@ -747,6 +747,15 @@ def _apply_new_source(
     uploaded_file,
     manual_due_date: date | None = None,
     manual_received_amount: Decimal = Decimal("0.00"),
+    disputed: bool = False,
+    disputed_amount: Decimal | None = None,
+    dispute_cause: str | None = None,
+    dispute_resolution: str = "none",
+    replacement_delivered: bool = False,
+    credit_amount: Decimal = Decimal("0.00"),
+    promise_made_date: date | None = None,
+    promise_date: date | None = None,
+    promise_amount: Decimal | None = None,
 ):
     result, source = _load_source(
         uploaded_file, manual_due_date, manual_received_amount
@@ -759,6 +768,17 @@ def _apply_new_source(
             invoice for invoice in result.invoices
             if invoice.invoice_id not in existing_ids
         ]
+        for inv in new_invoices:
+            inv.disputed = disputed
+            inv.disputed_amount = disputed_amount
+            inv.dispute_cause = dispute_cause
+            inv.dispute_resolution = dispute_resolution
+            inv.replacement_delivered = replacement_delivered
+            inv.credit_amount = credit_amount
+            inv.promise_made_date = promise_made_date
+            inv.promise_date = promise_date
+            inv.promise_amount = promise_amount
+
         duplicate_count = len(result.invoices) - len(new_invoices)
         existing.invoices.extend(new_invoices)
         existing.receipts.extend(result.receipts)
@@ -781,13 +801,14 @@ def _apply_new_source(
     st.session_state.negotiated_agreements = {}
 
 
-def _decimal_input(label: str, value: Decimal | None) -> Decimal | None:
+def _decimal_input(label: str, value: Decimal | None, key: str | None = None) -> Decimal | None:
     number = st.number_input(
         label,
         min_value=0.0,
         value=float(value or Decimal("0.00")),
         step=0.01,
         format="%.2f",
+        key=key,
     )
     try:
         return Decimal(str(number)).quantize(Decimal("0.01"))
@@ -796,128 +817,365 @@ def _decimal_input(label: str, value: Decimal | None) -> Decimal | None:
         return None
 
 
+
 def _render_add_bill() -> None:
-    st.subheader("Enter a bill manually")
-    st.caption("Use this form when you do not have a file, or when a PDF field needs correction.")
-    with st.form("add-manual-bill", clear_on_submit=False):
-        st.markdown("#### 1. Customer and bill details")
-        customer = st.text_input("Customer name *", placeholder="Example: Raj Electronics Pvt Ltd")
-        invoice_id = st.text_input("Invoice number *", placeholder="Example: INV-1001")
-        left, right = st.columns(2)
-        with left:
-            amount_value = st.number_input(
-                "Invoice amount (₹) *", min_value=0.0, value=0.0, step=0.01, format="%.2f"
-            )
-            invoice_date = st.date_input(
-                "Invoice date",
-                value=date.today(),
-                min_value=date(2000, 1, 1),
-                key="new_invoice_date_v2",
-            )
-        with right:
-            due_date = st.date_input(
-                "Due date *",
-                value=date.today(),
-                min_value=date(2000, 1, 1),
-                key="new_invoice_due_date_v2",
-            )
-            received_value = st.number_input(
-                "Already received (₹)", min_value=0.0, value=0.0, step=0.01, format="%.2f"
+    tab_upload, tab_manual = st.tabs(["📄 Upload Bill (PDF / Document)", "✍️ Enter Bill Manually"])
+
+    with tab_upload:
+        st.markdown("### 📄 Upload an Invoice PDF")
+        st.caption(
+            "Upload an invoice PDF. Hisaabset automatically extracts the customer, bill number, "
+            "amount, and dates, and lets you configure dispute holdbacks (e.g. damaged goods, short delivery, "
+            "settled in finances / credit note) and payment promises before saving."
+        )
+        pdf_file = st.file_uploader(
+            "Select an invoice file (PDF)",
+            type=["pdf"],
+            key="main_add_bill_pdf_uploader",
+            help="Upload a digital or computer-generated invoice PDF.",
+        )
+        if pdf_file is not None:
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as handle:
+                handle.write(pdf_file.getbuffer())
+                temp_pdf_path = handle.name
+
+            extraction, extraction_errors = extract_invoice_pdf(
+                temp_pdf_path,
+                as_of_date=st.session_state.get("as_of_date", date.today()),
+                source_name=pdf_file.name,
             )
 
-        st.markdown("#### 2. Optional dispute information")
-        disputed = st.checkbox("Customer has a problem with this bill")
-        disputed_amount: Decimal | None = None
-        dispute_cause = None
-        dispute_resolution = "none"
-        credit_amount = Decimal("0.00")
-        replacement_delivered = False
-        if disputed:
-            disputed_amount = _decimal_input("Amount in dispute (₹)", None)
-            cause_options = sorted(VALID_CAUSES)
-            dispute_cause = st.selectbox("Reason for dispute", cause_options)
-            dispute_resolution = st.selectbox(
-                "How is the dispute being handled?", sorted(VALID_RESOLUTIONS - {"none"})
-            )
-            if dispute_resolution == "replace_goods":
-                replacement_delivered = st.checkbox("Replacement goods delivered")
-            if dispute_resolution == "credit_note":
-                credit_amount = _decimal_input("Credit note amount (₹)", None) or Decimal("0.00")
+            extracted_inv = {}
+            if extraction and extraction.get("records", {}).get("invoices"):
+                extracted_inv = extraction["records"]["invoices"][0]
 
-        st.markdown("#### 3. Optional payment promise")
-        has_promise = st.checkbox("Customer promised to pay")
-        promise_made_date = None
-        promise_date = None
-        promise_amount: Decimal | None = None
-        if has_promise:
-            promise_made_date = st.date_input(
-                "Promise made date",
-                value=date.today(),
-                min_value=date(2000, 1, 1),
-                key="new_promise_made_v2",
-            )
-            promise_date = st.date_input(
-                "Promised payment date",
-                value=date.today(),
-                min_value=date(2000, 1, 1),
-                key="new_promise_date_v2",
-            )
-            promise_amount = _decimal_input("Promised amount (₹)", None)
+            def_cust = extracted_inv.get("customer", "")
+            def_id = extracted_inv.get("id", "")
+            def_amt = 0.0
+            if extracted_inv.get("amount_inr"):
+                try:
+                    def_amt = float(extracted_inv["amount_inr"])
+                except (ValueError, TypeError):
+                    def_amt = 0.0
 
-        save = st.form_submit_button("Save this bill")
+            def_inv_date = date.today()
+            if extracted_inv.get("invoice_date"):
+                try:
+                    raw_idate = extracted_inv["invoice_date"]
+                    def_inv_date = date.fromisoformat(raw_idate) if isinstance(raw_idate, str) else raw_idate
+                except Exception:
+                    def_inv_date = date.today()
 
-    if not save:
-        return
-    errors: list[str] = []
-    invoice_amount = Decimal(str(amount_value)).quantize(Decimal("0.01"))
-    received_amount = Decimal(str(received_value)).quantize(Decimal("0.01"))
-    existing_ids = {invoice.invoice_id for invoice in st.session_state.load_result.invoices}
-    if not customer.strip():
-        errors.append("Please enter the customer name.")
-    if not invoice_id.strip():
-        errors.append("Please enter the invoice number.")
-    elif invoice_id.strip() in existing_ids:
-        errors.append("This invoice number already exists.")
-    if invoice_amount <= 0:
-        errors.append("Invoice amount must be greater than zero.")
-    if received_amount > invoice_amount:
-        errors.append("Received amount cannot be greater than the invoice amount.")
-    if due_date < invoice_date:
-        errors.append("Due date cannot be before the invoice date.")
-    invoice = Invoice(
-        invoice_id=invoice_id.strip(),
-        customer=customer.strip(),
-        amount=invoice_amount,
-        due_date=due_date,
-        invoice_date=invoice_date,
-        received_amount=received_amount,
-        disputed=disputed,
-        disputed_amount=disputed_amount,
-        dispute_cause=dispute_cause,
-        dispute_resolution=dispute_resolution,
-        replacement_delivered=replacement_delivered,
-        credit_amount=credit_amount,
-        promise_made_date=promise_made_date,
-        promise_date=promise_date,
-        promise_amount=promise_amount,
-    )
-    errors.extend(validate_dispute(invoice, received_amount))
-    if has_promise:
-        if promise_made_date is None or promise_date is None or promise_amount is None:
-            errors.append("Promise made date, promised date, and promised amount are required.")
-        elif promise_date < promise_made_date:
-            errors.append("Promised payment date cannot be before the promise made date.")
-        elif promise_amount > max(
-            Decimal("0.00"), invoice_amount - received_amount - credit_amount
-        ):
-            errors.append("Promised amount cannot exceed the remaining balance.")
-    if errors:
-        for error in errors:
-            st.error(error)
-        return
-    st.session_state.load_result.invoices.append(invoice)
-    st.success("Bill saved. It is now included in Customers, Your bills, priority, and exports.")
-    st.rerun()
+            def_due_date = date.today()
+            if extracted_inv.get("due"):
+                try:
+                    raw_ddate = extracted_inv["due"]
+                    def_due_date = date.fromisoformat(raw_ddate) if isinstance(raw_ddate, str) else raw_ddate
+                except Exception:
+                    def_due_date = date.today()
+
+            st.success(
+                f"✅ Extracted fields from **{pdf_file.name}**. "
+                "Review the bill details below and mark any dispute (e.g. damaged goods, credit note) or payment promise before saving:"
+            )
+
+            with st.form("add-pdf-bill-form", clear_on_submit=False):
+                st.markdown("#### 1. Extracted Bill & Customer Details")
+                pdf_customer = st.text_input("Customer name *", value=def_cust, placeholder="Customer Name", key="pdf_form_cust")
+                pdf_invoice_id = st.text_input("Invoice number *", value=def_id, placeholder="e.g. INV-2026-001", key="pdf_form_inv_id")
+
+                col_amt, col_idate, col_ddate = st.columns(3)
+                with col_amt:
+                    pdf_amount = st.number_input("Invoice amount (₹) *", min_value=0.0, value=def_amt, step=0.01, format="%.2f", key="pdf_form_amt")
+                with col_idate:
+                    pdf_invoice_date = st.date_input("Invoice date", value=def_inv_date, min_value=date(2000, 1, 1), key="pdf_form_idate")
+                with col_ddate:
+                    pdf_due_date = st.date_input("Due date *", value=def_due_date, min_value=date(2000, 1, 1), key="pdf_form_ddate")
+
+                pdf_received = st.number_input("Already received amount (₹)", min_value=0.0, value=0.0, step=0.01, format="%.2f", key="pdf_form_recd")
+
+                st.markdown("#### 2. Dispute and Operational Issues (Optional)")
+                st.caption("Hold back disputed amounts (damaged cartons, rate discrepancies, short shipments) from the collection follow-up queue.")
+                pdf_disputed = st.checkbox("Customer has a problem / dispute with this bill", key="pdf_form_disputed")
+
+                pdf_disputed_amt = None
+                pdf_dispute_cause = None
+                pdf_dispute_res = "none"
+                pdf_rep_delivered = False
+                pdf_credit_amt = Decimal("0.00")
+
+                if pdf_disputed:
+                    pdf_disputed_amt = _decimal_input("Amount in dispute (₹)", None, key="pdf_form_disputed_amt")
+                    cause_labels = {
+                        "damaged_goods": "Damaged goods / breakage in transit",
+                        "short_delivery": "Short delivery / missing items",
+                        "wrong_price": "Pricing error / incorrect rate billed",
+                        "other": "Settled in finances / other operational dispute",
+                    }
+                    pdf_dispute_cause = st.selectbox(
+                        "Reason for dispute *",
+                        options=list(cause_labels.keys()),
+                        format_func=lambda k: cause_labels.get(k, k),
+                        key="pdf_form_cause",
+                    )
+                    res_labels = {
+                        "pending": "Pending investigation (hold in review)",
+                        "replace_goods": "Replacement goods to be delivered",
+                        "credit_note": "Credit note / Settled in finances",
+                    }
+                    pdf_dispute_res = st.selectbox(
+                        "How is the dispute being handled? *",
+                        options=list(res_labels.keys()),
+                        format_func=lambda k: res_labels.get(k, k),
+                        key="pdf_form_res",
+                    )
+                    if pdf_dispute_res == "replace_goods":
+                        pdf_rep_delivered = st.checkbox("Replacement goods already delivered", key="pdf_form_rep_del")
+                    if pdf_dispute_res == "credit_note":
+                        pdf_credit_amt = _decimal_input("Credit note amount (₹)", None, key="pdf_form_cr_amt") or Decimal("0.00")
+
+                st.markdown("#### 3. Payment Promise (Optional)")
+                pdf_has_promise = st.checkbox("Customer made a payment promise", key="pdf_form_has_promise")
+                pdf_prom_made = None
+                pdf_prom_date = None
+                pdf_prom_amt = None
+                if pdf_has_promise:
+                    col_p1, col_p2, col_p3 = st.columns(3)
+                    with col_p1:
+                        pdf_prom_made = st.date_input("Promise made date", value=date.today(), min_value=date(2000, 1, 1), key="pdf_form_pmade")
+                    with col_p2:
+                        pdf_prom_date = st.date_input("Promised payment date", value=date.today(), min_value=date(2000, 1, 1), key="pdf_form_pdate")
+                    with col_p3:
+                        pdf_prom_amt = _decimal_input("Promised amount (₹)", None, key="pdf_form_pamt")
+
+                save_pdf_bill = st.form_submit_button("💾 Save Bill with Dispute & Promise Details")
+
+                if save_pdf_bill:
+                    pdf_errors = []
+                    inv_amt_dec = Decimal(str(pdf_amount)).quantize(Decimal("0.01"))
+                    recd_amt_dec = Decimal(str(pdf_received)).quantize(Decimal("0.01"))
+                    existing_ids = {inv.invoice_id for inv in st.session_state.load_result.invoices}
+
+                    if not pdf_customer.strip():
+                        pdf_errors.append("Please enter or confirm the customer name.")
+                    if not pdf_invoice_id.strip():
+                        pdf_errors.append("Please enter or confirm the invoice number.")
+                    elif pdf_invoice_id.strip() in existing_ids:
+                        pdf_errors.append(f"Invoice number '{pdf_invoice_id.strip()}' already exists in your bills.")
+                    if inv_amt_dec <= 0:
+                        pdf_errors.append("Invoice amount must be greater than zero.")
+                    if recd_amt_dec > inv_amt_dec:
+                        pdf_errors.append("Received amount cannot exceed invoice amount.")
+                    if pdf_due_date < pdf_invoice_date:
+                        pdf_errors.append("Due date cannot be before invoice date.")
+
+                    candidate_inv = Invoice(
+                        invoice_id=pdf_invoice_id.strip(),
+                        customer=pdf_customer.strip(),
+                        amount=inv_amt_dec,
+                        due_date=pdf_due_date,
+                        invoice_date=pdf_invoice_date,
+                        received_amount=recd_amt_dec,
+                        disputed=pdf_disputed,
+                        disputed_amount=pdf_disputed_amt,
+                        dispute_cause=pdf_dispute_cause,
+                        dispute_resolution=pdf_dispute_res,
+                        replacement_delivered=pdf_rep_delivered,
+                        credit_amount=pdf_credit_amt,
+                        promise_made_date=pdf_prom_made,
+                        promise_date=pdf_prom_date,
+                        promise_amount=pdf_prom_amt,
+                    )
+                    pdf_errors.extend(validate_dispute(candidate_inv, recd_amt_dec))
+                    if pdf_has_promise:
+                        if pdf_prom_made is None or pdf_prom_date is None or pdf_prom_amt is None:
+                            pdf_errors.append("Promise made date, promised payment date, and promised amount are required.")
+                        elif pdf_prom_date < pdf_prom_made:
+                            pdf_errors.append("Promised payment date cannot be before the date the promise was made.")
+                        elif pdf_prom_amt > max(Decimal("0.00"), inv_amt_dec - recd_amt_dec - pdf_credit_amt):
+                            pdf_errors.append("Promised amount cannot exceed remaining balance.")
+
+                    if pdf_errors:
+                        for err in pdf_errors:
+                            st.error(err)
+                    else:
+                        st.session_state.load_result.invoices.append(candidate_inv)
+                        if recd_amt_dec > 0:
+                            st.session_state.load_result.receipts.append(
+                                Receipt(
+                                    receipt_id=f"REC-{candidate_inv.invoice_id}",
+                                    invoice_id=candidate_inv.invoice_id,
+                                    customer=candidate_inv.customer,
+                                    amount=recd_amt_dec,
+                                    receipt_date=candidate_inv.invoice_date or date.today(),
+                                )
+                            )
+                        st.session_state.reviewed_drafts = {}
+                        st.session_state.draft_text = {}
+                        st.session_state.negotiated_agreements = {}
+                        st.success(
+                            f"🎉 Bill **{candidate_inv.invoice_id}** for **{candidate_inv.customer}** saved! "
+                            f"Amount: ₹{candidate_inv.amount} · Dispute held in review: ₹{candidate_inv.disputed_amount or Decimal('0.00')} · "
+                            f"Now live in 'Your bills' and 'Customers'."
+                        )
+                        st.rerun()
+
+    with tab_manual:
+        st.markdown("### ✍️ Enter Bill Details Manually")
+        st.caption("Use this form when you do not have a PDF document, or wish to key in bill data manually.")
+        with st.form("add-manual-bill", clear_on_submit=False):
+            st.markdown("#### 1. Customer and bill details")
+            customer = st.text_input("Customer name *", placeholder="Example: Raj Electronics Pvt Ltd", key="man_cust_in")
+            invoice_id = st.text_input("Invoice number *", placeholder="Example: INV-1001", key="man_invid_in")
+            left, right = st.columns(2)
+            with left:
+                amount_value = st.number_input(
+                    "Invoice amount (₹) *", min_value=0.0, value=0.0, step=0.01, format="%.2f", key="man_amt_in"
+                )
+                invoice_date = st.date_input(
+                    "Invoice date",
+                    value=date.today(),
+                    min_value=date(2000, 1, 1),
+                    key="man_idate_in",
+                )
+            with right:
+                due_date = st.date_input(
+                    "Due date *",
+                    value=date.today(),
+                    min_value=date(2000, 1, 1),
+                    key="man_ddate_in",
+                )
+                received_value = st.number_input(
+                    "Already received (₹)", min_value=0.0, value=0.0, step=0.01, format="%.2f", key="man_recd_in"
+                )
+
+            st.markdown("#### 2. Dispute and operational issues (Optional)")
+            disputed = st.checkbox("Customer has a problem with this bill", key="man_disp_cb")
+            disputed_amount: Decimal | None = None
+            dispute_cause = None
+            dispute_resolution = "none"
+            credit_amount = Decimal("0.00")
+            replacement_delivered = False
+            if disputed:
+                disputed_amount = _decimal_input("Amount in dispute (₹)", None, key="man_disp_amt")
+                cause_labels = {
+                    "damaged_goods": "Damaged goods / breakage in transit",
+                    "short_delivery": "Short delivery / missing items",
+                    "wrong_price": "Pricing error / incorrect rate billed",
+                    "other": "Settled in finances / other operational dispute",
+                }
+                dispute_cause = st.selectbox(
+                    "Reason for dispute",
+                    options=list(cause_labels.keys()),
+                    format_func=lambda k: cause_labels.get(k, k),
+                    key="man_disp_cause",
+                )
+                res_labels = {
+                    "pending": "Pending investigation (hold in review)",
+                    "replace_goods": "Replacement goods to be delivered",
+                    "credit_note": "Credit note / Settled in finances",
+                }
+                dispute_resolution = st.selectbox(
+                    "How is the dispute being handled?",
+                    options=list(res_labels.keys()),
+                    format_func=lambda k: res_labels.get(k, k),
+                    key="man_disp_res",
+                )
+                if dispute_resolution == "replace_goods":
+                    replacement_delivered = st.checkbox("Replacement goods delivered", key="man_rep_del")
+                if dispute_resolution == "credit_note":
+                    credit_amount = _decimal_input("Credit note amount (₹)", None, key="man_cr_amt") or Decimal("0.00")
+
+            st.markdown("#### 3. Payment promise (Optional)")
+            has_promise = st.checkbox("Customer promised to pay", key="man_prom_cb")
+            promise_made_date = None
+            promise_date = None
+            promise_amount: Decimal | None = None
+            if has_promise:
+                col_m1, col_m2, col_m3 = st.columns(3)
+                with col_m1:
+                    promise_made_date = st.date_input(
+                        "Promise made date",
+                        value=date.today(),
+                        min_value=date(2000, 1, 1),
+                        key="man_pmade",
+                    )
+                with col_m2:
+                    promise_date = st.date_input(
+                        "Promised payment date",
+                        value=date.today(),
+                        min_value=date(2000, 1, 1),
+                        key="man_pdate",
+                    )
+                with col_m3:
+                    promise_amount = _decimal_input("Promised amount (₹)", None, key="man_pamt")
+
+            save = st.form_submit_button("Save this bill")
+
+            if save:
+                errors: list[str] = []
+                invoice_amount = Decimal(str(amount_value)).quantize(Decimal("0.01"))
+                received_amount = Decimal(str(received_value)).quantize(Decimal("0.01"))
+                existing_ids = {invoice.invoice_id for invoice in st.session_state.load_result.invoices}
+                if not customer.strip():
+                    errors.append("Please enter the customer name.")
+                if not invoice_id.strip():
+                    errors.append("Please enter the invoice number.")
+                elif invoice_id.strip() in existing_ids:
+                    errors.append("This invoice number already exists.")
+                if invoice_amount <= 0:
+                    errors.append("Invoice amount must be greater than zero.")
+                if received_amount > invoice_amount:
+                    errors.append("Received amount cannot be greater than the invoice amount.")
+                if due_date < invoice_date:
+                    errors.append("Due date cannot be before the invoice date.")
+                invoice = Invoice(
+                    invoice_id=invoice_id.strip(),
+                    customer=customer.strip(),
+                    amount=invoice_amount,
+                    due_date=due_date,
+                    invoice_date=invoice_date,
+                    received_amount=received_amount,
+                    disputed=disputed,
+                    disputed_amount=disputed_amount,
+                    dispute_cause=dispute_cause,
+                    dispute_resolution=dispute_resolution,
+                    replacement_delivered=replacement_delivered,
+                    credit_amount=credit_amount,
+                    promise_made_date=promise_made_date,
+                    promise_date=promise_date,
+                    promise_amount=promise_amount,
+                )
+                errors.extend(validate_dispute(invoice, received_amount))
+                if has_promise:
+                    if promise_made_date is None or promise_date is None or promise_amount is None:
+                        errors.append("Promise made date, promised date, and promised amount are required.")
+                    elif promise_date < promise_made_date:
+                        errors.append("Promised payment date cannot be before the promise made date.")
+                    elif promise_amount > max(
+                        Decimal("0.00"), invoice_amount - received_amount - credit_amount
+                    ):
+                        errors.append("Promised amount cannot exceed the remaining balance.")
+                if errors:
+                    for error in errors:
+                        st.error(error)
+                else:
+                    st.session_state.load_result.invoices.append(invoice)
+                    if received_amount > 0:
+                        st.session_state.load_result.receipts.append(
+                            Receipt(
+                                receipt_id=f"REC-{invoice.invoice_id}",
+                                invoice_id=invoice.invoice_id,
+                                customer=invoice.customer,
+                                amount=received_amount,
+                                receipt_date=invoice.invoice_date or date.today(),
+                            )
+                        )
+                    st.session_state.reviewed_drafts = {}
+                    st.session_state.draft_text = {}
+                    st.session_state.negotiated_agreements = {}
+                    st.success("Bill saved. It is now included in Customers, Your bills, priority, and exports.")
+                    st.rerun()
 
 
 def _render_invoice_detail(evaluations):
@@ -1241,12 +1499,79 @@ def main():
                 format="%.2f",
                 help="Enter payments already received for this invoice.",
             ))).quantize(Decimal("0.01"))
+
+            with st.expander("⚠️ Dispute & Promise (Optional)", expanded=False):
+                sidebar_disputed = st.checkbox("Customer has a dispute with this bill", key="sb_disp_cb")
+                sidebar_disputed_amount = None
+                sidebar_dispute_cause = None
+                sidebar_dispute_resolution = "none"
+                sidebar_replacement_delivered = False
+                sidebar_credit_amount = Decimal("0.00")
+                if sidebar_disputed:
+                    sidebar_disputed_amount = _decimal_input("Amount in dispute (₹)", None, key="sb_disp_amt_val")
+                    sb_cause_map = {
+                        "damaged_goods": "Damaged goods in transit",
+                        "short_delivery": "Short delivery / missing",
+                        "wrong_price": "Pricing discrepancy",
+                        "other": "Settled in finances / other",
+                    }
+                    sidebar_dispute_cause = st.selectbox(
+                        "Reason for dispute",
+                        options=list(sb_cause_map.keys()),
+                        format_func=lambda k: sb_cause_map.get(k, k),
+                        key="sb_disp_cause_val",
+                    )
+                    sb_res_map = {
+                        "pending": "Pending investigation",
+                        "replace_goods": "Replace goods",
+                        "credit_note": "Credit note / Settled in finances",
+                    }
+                    sidebar_dispute_resolution = st.selectbox(
+                        "Resolution",
+                        options=list(sb_res_map.keys()),
+                        format_func=lambda k: sb_res_map.get(k, k),
+                        key="sb_disp_res_val",
+                    )
+                    if sidebar_dispute_resolution == "replace_goods":
+                        sidebar_replacement_delivered = st.checkbox("Replacement delivered", key="sb_rep_del_val")
+                    if sidebar_dispute_resolution == "credit_note":
+                        sidebar_credit_amount = _decimal_input("Credit note (₹)", None, key="sb_cr_amt_val") or Decimal("0.00")
+
+                sidebar_has_promise = st.checkbox("Customer promised to pay", key="sb_prom_cb")
+                sidebar_promise_made = None
+                sidebar_promise_date = None
+                sidebar_promise_amount = None
+                if sidebar_has_promise:
+                    sidebar_promise_made = st.date_input("Promise made", value=date.today(), key="sb_pmade_val")
+                    sidebar_promise_date = st.date_input("Promised date", value=date.today(), key="sb_pdate_val")
+                    sidebar_promise_amount = _decimal_input("Promised (₹)", None, key="sb_pamt_val")
         else:
             manual_due_date = None
             manual_received_amount = Decimal("0.00")
+            sidebar_disputed = False
+            sidebar_disputed_amount = None
+            sidebar_dispute_cause = None
+            sidebar_dispute_resolution = "none"
+            sidebar_replacement_delivered = False
+            sidebar_credit_amount = Decimal("0.00")
+            sidebar_promise_made = None
+            sidebar_promise_date = None
+            sidebar_promise_amount = None
+
         if st.button("Load selected file") and upload is not None:
             _apply_new_source(
-                upload, manual_due_date, manual_received_amount
+                upload,
+                manual_due_date,
+                manual_received_amount,
+                disputed=sidebar_disputed,
+                disputed_amount=sidebar_disputed_amount,
+                dispute_cause=sidebar_dispute_cause,
+                dispute_resolution=sidebar_dispute_resolution,
+                replacement_delivered=sidebar_replacement_delivered,
+                credit_amount=sidebar_credit_amount,
+                promise_made_date=sidebar_promise_made,
+                promise_date=sidebar_promise_date,
+                promise_amount=sidebar_promise_amount,
             )
             st.rerun()
         as_of = st.date_input(
@@ -1305,6 +1630,7 @@ def main():
 
     if navigation == "＋ Add new bill":
         _render_add_bill()
+        return
 
     if result.errors:
         st.warning(f"{len(result.errors)} validation error(s) found; invalid rows are excluded.")
