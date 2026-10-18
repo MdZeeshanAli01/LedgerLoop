@@ -781,9 +781,19 @@ def _render_add_bill() -> None:
             amount_value = st.number_input(
                 "Invoice amount (₹) *", min_value=0.0, value=0.0, step=0.01, format="%.2f"
             )
-            invoice_date = st.date_input("Invoice date", value=date.today(), min_value=date(2000, 1, 1))
+            invoice_date = st.date_input(
+                "Invoice date",
+                value=date.today(),
+                min_value=date(2000, 1, 1),
+                key="new_invoice_date_v2",
+            )
         with right:
-            due_date = st.date_input("Due date *", value=date.today(), min_value=date(2000, 1, 1))
+            due_date = st.date_input(
+                "Due date *",
+                value=date.today(),
+                min_value=date(2000, 1, 1),
+                key="new_invoice_due_date_v2",
+            )
             received_value = st.number_input(
                 "Already received (₹)", min_value=0.0, value=0.0, step=0.01, format="%.2f"
             )
@@ -814,10 +824,16 @@ def _render_add_bill() -> None:
         promise_amount: Decimal | None = None
         if has_promise:
             promise_made_date = st.date_input(
-                "Promise made date", value=date.today(), min_value=date(2000, 1, 1)
+                "Promise made date",
+                value=date.today(),
+                min_value=date(2000, 1, 1),
+                key="new_promise_made_v2",
             )
             promise_date = st.date_input(
-                "Promised payment date", value=date.today(), min_value=date(2000, 1, 1)
+                "Promised payment date",
+                value=date.today(),
+                min_value=date(2000, 1, 1),
+                key="new_promise_date_v2",
             )
             promise_amount = _decimal_input("Promised amount (₹)", None)
 
@@ -904,8 +920,9 @@ def _render_invoice_detail(evaluations):
         st.markdown("#### Dispute and promise review")
         due_date = st.date_input(
             "Agreed due date",
-            value=invoice.due_date,
+            value=_safe_as_of_date(invoice.due_date),
             min_value=date(2000, 1, 1),
+            key=f"edit_due_date_{invoice.invoice_id}",
             help="Use this when you and the customer agree on a new payment date.",
         )
         received_amount = _decimal_input(
@@ -957,11 +974,13 @@ def _render_invoice_detail(evaluations):
                 "Promise made date",
                 value=invoice.promise_made_date or date.today(),
                 min_value=date(2000, 1, 1),
+                key=f"edit_promise_made_{invoice.invoice_id}",
             )
             promise_date = st.date_input(
                 "Promise date",
                 value=invoice.promise_date or date.today(),
                 min_value=date(2000, 1, 1),
+                key=f"edit_promise_date_{invoice.invoice_id}",
             )
         else:
             promise_made = None
@@ -1192,6 +1211,7 @@ def main():
                     "Manual due date if PDF has no due date",
                     value=date.today(),
                     min_value=date(2000, 1, 1),
+                    key="manual_pdf_due_date_v2",
                 )
                 if has_manual_due_date
                 else None
