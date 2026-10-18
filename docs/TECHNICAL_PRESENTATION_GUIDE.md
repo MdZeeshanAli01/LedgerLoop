@@ -2,7 +2,7 @@
 
 **Project Name:** Hisaabset (*Har payment ka clear hisab*)  
 **Repository:** `https://github.com/MdZeeshanAli01/LedgerLoop.git`  
-**Live Application URL:** `http://13.233.244.181:8501`  
+**Live Application URL:** `http://13.126.83.182:8501`  
 **Document Purpose:** Complete technical reference, architectural defense, and Q&A handbook for technical evaluators, hackathon judges, and architecture reviews.
 
 ---
@@ -245,12 +245,69 @@ When an indebted retailer needs new stock, Hisaabset structures a structured rec
 
 ---
 
-## 7. Quick Presentation Checklist
+## 7. Single-Role Authentication Architecture & Navigation Flow
 
-- [x] **Live Demo URL:** `http://13.233.244.181:8501`
+### Single Role Principle
+Per business operational specifications, Hisaabset is intentionally architected with **only one authorized role**: **Finance Lead** (`admin` / Zeeshan Ali).
+- **Rationale:** Small-to-medium Indian distributor firms do not have multi-tiered finance departments with disjoint roles. The business owner or designated Finance Lead oversees the entire ledger, invoice intake, customer communication, and dispute adjudication. Enforcing a single authorized role eliminates RBAC complexity, session switching errors, and accidental privilege escalation.
+- **Authorized Identity:**
+  - **Role:** `Finance Lead`
+  - **Authorized User:** `Zeeshan Ali` (`admin` or `finance` or `sszeeshu@gmail.com`)
+  - **Default Credentials:** `admin` / `[credential-rotated]`
+
+### Page-to-Page Navigation Flow
+
+```
+                      ┌────────────────────────────┐
+                      │    Public Browser Entry    │
+                      └──────────────┬─────────────┘
+                                     │
+                                     ▼
+                      ┌────────────────────────────┐
+                      │   1. Emerald Login Gate    │
+                      │   - Username & Password    │
+                      │   - 1-Click Quick Demo     │
+                      └──────────────┬─────────────┘
+                                     │ Authenticated
+                                     ▼
+                      ┌────────────────────────────┐
+                      │  Authenticated App Shell   │
+                      │  - Profile: Zeeshan Ali    │
+                      │  - Role: Finance Lead      │
+                      │  - 🚪 Instant Sign Out     │
+                      └──────────────┬─────────────┘
+                                     │
+           ┌─────────────────────────┼─────────────────────────┐
+           ▼                         ▼                         ▼
+┌─────────────────────┐   ┌─────────────────────┐   ┌─────────────────────┐
+│ 2. Add New Bill     │   │ 3. Your Bills       │   │ 4. Customers        │
+│ - Upload PDF/Images │   │ - Portfolio Ledger  │   │ - Directory Master  │
+│ - OCR & LLM Parsing │   │ - Ageing Analysis   │   │ - Total Exposure    │
+│ - Split Disputes    │   │ - Priority Queue    │   │ - Credit Risk Score │
+│ - Auto-Save Customer│   │ - Payment Links     │   │ - Payment Promises  │
+│ - Generate UPI Link │   │ - SES Email Followup│   │ - Negotiated Recov. │
+└─────────────────────┘   └─────────────────────┘   └─────────────────────┘
+```
+
+1. **Gatekeeper Flow:**
+   - Unauthenticated visitors are restricted strictly to the branded Emerald Login portal. All ledger data, customer information, and financial metrics are inaccessible until authenticated.
+2. **Post-Authentication Landing:**
+   - Authenticated sessions land on the main operations workspace.
+   - The persistent sidebar displays user identity (`Signed In As: Zeeshan Ali · Finance Lead`) and provides an instant `🚪 Sign out` action that clears session state and redirects to the login screen.
+3. **Seamless Screen Interconnections:**
+   - **From `Add new bill` to `Your bills`:** Once an invoice is parsed and saved, it automatically populates the bills table in `Your bills` and creates or links the customer in `Customers`.
+   - **From `Your bills` to Customer Follow-up:** Clicking on an invoice's follow-up or payment link allows generating dynamic UPI/Razorpay links and sending human-approved emails via AWS SES.
+   - **From `Customers` to Customer Ledgers:** Viewing any customer profile aggregates their full lifetime transaction history, broken promises, and outstanding balance directly linked to `Your bills`.
+
+---
+
+## 8. Quick Presentation Checklist
+
+- [x] **Live Demo URL:** `http://13.126.83.182:8501`
 - [x] **GitHub Repository:** `https://github.com/MdZeeshanAli01/LedgerLoop`
-- [x] **Test Suite:** 79 tests (78 passed, 1 skipped cleanly)
-- [x] **Container Health Endpoint:** `http://13.233.244.181:8501/_stcore/health` (Returns `200 ok`)
+- [x] **Test Suite:** 83 tests (82 passed, 1 skipped cleanly)
+- [x] **Container Health Endpoint:** `http://13.126.83.182:8501/_stcore/health` (Returns `200 ok`)
 - [x] **AWS Region:** `ap-south-1` (Mumbai)
-- [x] **ECS Cluster / Service:** `hisaabset-cluster` / `hisaabset-service`
+- [x] **ECS Cluster / Service:** `hisaabset-cluster` / `hisaabset-service-iv1acua6`
+- [x] **Role Architecture:** Single Authorized Role (**Finance Lead** / `admin`)
 
